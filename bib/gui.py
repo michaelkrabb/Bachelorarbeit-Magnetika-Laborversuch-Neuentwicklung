@@ -42,6 +42,15 @@ from .functions_ac3 import set_fortsetzen_modus, fortsetzen_modus, sample_rate, 
 #Erstellen der Skalierungsfaktor Eingabe 
 
 def create_button(fenster, text, command=None, primary=False):
+
+    """
+    Folgende Funktion erzeugt Buttons welche dann einfahc verwenden werden 
+    können, um zu gewährleisten, dass man den gleichen button hat oder
+    schnell eine Änderung machen kann, vor allem für dei Optik sehr einfach
+    """
+
+
+
     if primary:
         return tk.Button(
             fenster,
@@ -96,7 +105,7 @@ def save_scale(entry_x, entry_y,hauptfenster):
 
     hauptfenster.state["scale_H"] = h
     hauptfenster.state["scale_B"] = b
-    print(f"[GUI] Gespeichert: H={h}, B={b}") #zum testen und Konsolen Anzeige
+    #print(f"[GUI] Gespeichert: H={h}, B={b}") #zum testen und Konsolen Anzeige
 
     messagebox.showinfo("Status", "Skalierungsfaktoren gespeichert")
 
@@ -111,7 +120,8 @@ def eingabe_skalierung(frame_scale,hauptfenster):
     )
 
     label_title.pack(anchor="w", padx=30, pady=(350,10))  # etwas Abstand nach oben/unten
-"""
+    """
+    #fixen des Problems mit grid und row
 
 
     #Rahmen für das Eingabefeld
@@ -141,6 +151,7 @@ def eingabe_skalierung(frame_scale,hauptfenster):
     #Eingabefeld
     entry_y = tk.Entry(frame_y, width=12, bd=2, relief="solid")
     entry_y.pack(pady=2)
+    
 
     #Button erzeugen um Skalierungsfaktoren abzuspeichern
     button_scale = create_button(
