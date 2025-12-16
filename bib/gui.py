@@ -122,6 +122,10 @@ def eingabe_skalierung(frame_scale,hauptfenster):
     label_title.pack(anchor="w", padx=30, pady=(350,10))  # etwas Abstand nach oben/unten
     """
     #fixen des Problems mit grid und row
+    #Das bedeteutet grid erstellen und dann die Anordnung mit row machen
+
+    #Konzept mit grd(row = usw.) das muss man jetzt anpassen 
+    
 
 
     #Rahmen für das Eingabefeld
