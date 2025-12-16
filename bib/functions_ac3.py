@@ -46,7 +46,7 @@ CSV_Ordner= r'C:\Users\Michael Krabb\Desktop\python_freifach\BAC_CSV'
 fs =  250           #Sample per seconds
 sc = 10             #Zeit 
 R = 1               #Ohm, Wert des Shunt-Widerstands
-t_index = 0         # Zeitindex für alle Messungen (in Samples)
+t_index = 0         #Zeitindex für alle Messungen (in Samples)
 u_offset = 0        #Offset 
 
 #globale Variable für Messung fortsetzen
