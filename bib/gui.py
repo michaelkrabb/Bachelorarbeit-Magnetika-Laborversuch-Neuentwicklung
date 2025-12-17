@@ -33,6 +33,7 @@ import os
 #Tkinter für GUI
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+import tk_tools
 
 # gemeinsame Objekte aus functions_ac3.py holen:
 from .functions_ac3 import start_messung, stop_messung, data_queue, run_event,update_offset
@@ -111,50 +112,40 @@ def save_scale(entry_x, entry_y,hauptfenster):
 
 def eingabe_skalierung(frame_scale,hauptfenster):
 
-    # Überschrift
-    """
-    label_title = tk.Label(
-        hauptfenster,
-        text="Skalierung für Feldstärke und Flussdichte",
-        font=("Arial", 10, "bold")
-    )
-
-    label_title.pack(anchor="w", padx=30, pady=(350,10))  # etwas Abstand nach oben/unten
-    """
-    #fixen des Problems mit grid und row
-    #Das bedeteutet grid erstellen und dann die Anordnung mit row machen
-
-    #Konzept mit grd(row = usw.) das muss man jetzt anpassen 
     
+    frame_x = tk.Frame(frame_scale, bg="#f5f7fa")
+    frame_x.grid(row=0, column=0,padx=4,pady=4,sticky="ew")
 
-
-    #Rahmen für das Eingabefeld
-    frame_x = tk.Frame(frame_scale, bg="#f5f7fa",padx=4,pady=4)
-    frame_x.pack(anchor="w", padx=4, pady=4, fill="x")
-
-    frame_y = tk.Frame(frame_scale, bg="#f5f7fa",padx=4,pady=4)
-    frame_y.pack(anchor="w", padx=4, pady=4, fill="x")
-
-    #beschriftung der Felder magnetische Feldstärke
-    label_x = tk.Label(frame_x,text="1V... = ")
-    label_x.pack(side="left", padx=(0,4))
-    label_x = tk.Label(frame_x,text= "[A/m]")
-    label_x.pack(side="right", padx=(4,0))
-
+    frame_y = tk.Frame(frame_scale, bg="#f5f7fa")
+    frame_y.grid(row=1, column=0,padx=4,pady=4,sticky="ew")
+    
+    #Jetzt das Label so anpassen, das es mit grid und nciht mit pad funktioniert
+    label_x = tk.Label(frame_x,text="1V... = ").grid(row=0,column=0,
+                                                     sticky="w",
+                                                     padx=5,pady=5)
+   
+    label_x = tk.Label(frame_x,text= "[A/m]").grid(row=0,column=2,
+                                                     sticky="w",
+                                                     padx=5,pady=5)
+   
     #beschriftung der Felder magenetische Flussdichte
-    label_y = tk.Label(frame_y,text="1V... = ")
-    label_y.pack(side="left", padx=(0,4))
-    label_y = tk.Label(frame_y,text= "[T]")
-    label_y.pack(side="right", padx=(4,0))
+    label_y = tk.Label(frame_y,text="1V... = ").grid(row=1,column=0,
+                                                     sticky="w",
+                                                     padx=5,pady=5)
 
+    label_y = tk.Label(frame_y,text= "[T]").grid(row=1,column=2,
+                                                     sticky="w",
+                                                     padx=5,pady=5)
+    
+    #Eingabefeld
+    entry_x = tk.Entry(frame_x, width=12, bd=2, 
+                       relief="solid").grid(row=0,column=1,padx=5,pady=5)
+    #entry_x.pack(pady=2)
 
     #Eingabefeld
-    entry_x = tk.Entry(frame_x, width=12, bd=2, relief="solid")
-    entry_x.pack(pady=2)
-
-    #Eingabefeld
-    entry_y = tk.Entry(frame_y, width=12, bd=2, relief="solid")
-    entry_y.pack(pady=2)
+    entry_y = tk.Entry(frame_y, width=12, bd=2, 
+                       relief="solid").grid(row=1,column=1,padx=5,pady=5)
+    #entry_y.pack(pady=2)
     
 
     #Button erzeugen um Skalierungsfaktoren abzuspeichern
@@ -164,7 +155,7 @@ def eingabe_skalierung(frame_scale,hauptfenster):
         command=lambda: save_scale(entry_x, entry_y, hauptfenster),
         primary=False,
     )
-    button_scale.pack(anchor="w", padx=4, pady=8)
+    button_scale.grid(row=2, column=0, sticky="w", padx=4, pady=8)
 
     return entry_x,entry_y
 
@@ -677,6 +668,7 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
     hauptfenster.state["status_var"] = status_var
     hauptfenster.state["button_toggle"] = button_toggle
 
+
     def start_stop_button():
         if not hauptfenster.state["messung_laeuft"]:
             # --- Messung STARTEN ---
@@ -695,6 +687,7 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
                 activebackground="limegreen",
                 fg="black",
                 activeforeground="black",
+                command=lambda: status_led.set(0)
             )
             status_var.set("Messung läuft…")
 
@@ -710,12 +703,36 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
                 activebackground="#1565c0",
                 fg="white",
                 activeforeground="white",
+                command=lambda: status_led.set(1)
             )
             status_var.set("Gestoppt")
-            
 
     button_toggle.config(command=start_stop_button)    
 
+def status_led():
+        value = status_led()
+        return value
+
+def LED_status(frame_messung,hauptfenster):
+
+    """
+    Die FUnktion erzeugt eine LED, welche den Status der Messung anzeigt.
+    Das bedeutet die LED leuchtet grün wenn die Messung läuft und ist rot,
+    wenn die Messung pausiert wurde.
+    """
+
+    #Led erzeugen
+
+    led0 = tk_tools.Led(frame_messung, size = 30, bg = "1e88e5")
+    led0.pack()
+
+    #LED bzw. Status anzeigen
+    if status_led.get() == 0:
+
+        return
+    elif status_led.get() == 1:
+        return
+    
 
 
 def close_hauptfenster(frame_messung,hauptfenster):
@@ -1367,7 +1384,6 @@ def untermenue(hauptfenster):
 
     hauptfenster.config(menu=menuebar)
 
-    
 
 class Hauptfenster(tk.Tk):
     """
