@@ -43,7 +43,7 @@ data_queue = queue.Queue()
 CSV_Ordner= r'C:\Users\Michael Krabb\Desktop\python_freifach\BAC_CSV'
 
 #Variablen
-fs =  250           #Sample per seconds
+fs = 250            #Sample per seconds
 sc = 10             #Zeit 
 R = 1               #Ohm, Wert des Shunt-Widerstands
 t_index = 0         #Zeitindex für alle Messungen (in Samples)
@@ -187,7 +187,7 @@ def sample_update():
 
     chunk_s = 0.2                           # Blocklänge in Sekunden (z.B. 0.2s)
     chunk_n = max(1, int(fs * chunk_s))     # Samples pro Block
-                          # fortlaufender Sample-Index
+                                            # fortlaufender Sample-Index
     
     # Sicherheitsnetz: falls doch None, neu anlegen
 
@@ -238,7 +238,7 @@ def sample_update():
 def close_device(device):
     if device is not None:
         try:
-            device.close()   # () wirklich aufrufen
+            device.close()   #schließt das device
         except Exception as e:
             print(f"Fehler beim Schließen: {e}")
 

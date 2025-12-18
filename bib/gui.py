@@ -33,6 +33,7 @@ import os
 #Tkinter für GUI
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+import tk_tools
 
 # gemeinsame Objekte aus functions_ac3.py holen:
 from .functions_ac3 import start_messung, stop_messung, data_queue, run_event,update_offset
@@ -111,50 +112,39 @@ def save_scale(entry_x, entry_y,hauptfenster):
 
 def eingabe_skalierung(frame_scale,hauptfenster):
 
-    # Überschrift
-    """
-    label_title = tk.Label(
-        hauptfenster,
-        text="Skalierung für Feldstärke und Flussdichte",
-        font=("Arial", 10, "bold")
-    )
-
-    label_title.pack(anchor="w", padx=30, pady=(350,10))  # etwas Abstand nach oben/unten
-    """
-    #fixen des Problems mit grid und row
-    #Das bedeteutet grid erstellen und dann die Anordnung mit row machen
-
-    #Konzept mit grd(row = usw.) das muss man jetzt anpassen 
     
+    frame_x = tk.Frame(frame_scale, bg="#f5f7fa")
+    frame_x.grid(row=0, column=0,padx=4,pady=4,sticky="ew")
 
-
-    #Rahmen für das Eingabefeld
-    frame_x = tk.Frame(frame_scale, bg="#f5f7fa",padx=4,pady=4)
-    frame_x.pack(anchor="w", padx=4, pady=4, fill="x")
-
-    frame_y = tk.Frame(frame_scale, bg="#f5f7fa",padx=4,pady=4)
-    frame_y.pack(anchor="w", padx=4, pady=4, fill="x")
-
-    #beschriftung der Felder magnetische Feldstärke
-    label_x = tk.Label(frame_x,text="1V... = ")
-    label_x.pack(side="left", padx=(0,4))
-    label_x = tk.Label(frame_x,text= "[A/m]")
-    label_x.pack(side="right", padx=(4,0))
-
+    frame_y = tk.Frame(frame_scale, bg="#f5f7fa")
+    frame_y.grid(row=1, column=0,padx=4,pady=4,sticky="ew")
+    
+    #Jetzt das Label so anpassen, das es mit grid und nciht mit pad funktioniert
+    label_x = tk.Label(frame_x,text="1V... = ").grid(row=0,column=0,
+                                                     sticky="w",
+                                                     padx=5,pady=5)
+   
+    label_x = tk.Label(frame_x,text= "[A/m]").grid(row=0,column=2,
+                                                     sticky="w",
+                                                     padx=5,pady=5)
+   
     #beschriftung der Felder magenetische Flussdichte
-    label_y = tk.Label(frame_y,text="1V... = ")
-    label_y.pack(side="left", padx=(0,4))
-    label_y = tk.Label(frame_y,text= "[T]")
-    label_y.pack(side="right", padx=(4,0))
+    label_y = tk.Label(frame_y,text="1V... = ").grid(row=1,column=0,
+                                                     sticky="w",
+                                                     padx=5,pady=5)
 
-
+    label_y = tk.Label(frame_y,text= "[T]").grid(row=1,column=2,
+                                                     sticky="w",
+                                                     padx=5,pady=5)
+    
     #Eingabefeld
     entry_x = tk.Entry(frame_x, width=12, bd=2, relief="solid")
-    entry_x.pack(pady=2)
+    entry_x.grid(row=0,column=1,padx=5,pady=5)
+
 
     #Eingabefeld
     entry_y = tk.Entry(frame_y, width=12, bd=2, relief="solid")
-    entry_y.pack(pady=2)
+    entry_y.grid(row=1,column=1,padx=5,pady=5)
     
 
     #Button erzeugen um Skalierungsfaktoren abzuspeichern
@@ -164,7 +154,7 @@ def eingabe_skalierung(frame_scale,hauptfenster):
         command=lambda: save_scale(entry_x, entry_y, hauptfenster),
         primary=False,
     )
-    button_scale.pack(anchor="w", padx=4, pady=8)
+    button_scale.grid(row=2, column=0, sticky="w", padx=4, pady=8)
 
     return entry_x,entry_y
 
@@ -660,22 +650,28 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
     Messung starten und stoppen
 
     DIe FUnktion gibt nichts zurück. Gleichbedeutent ist der klick einer der 
-    Buttons wiochtig für die Messung denn wirklich erst beim klicken wird die Messung gestartet oder gestopp
+    Buttons wiochtig für die Messung denn wirklich erst beim klicken wird die 
+    Messung gestartet oder gestopp. Außerdem wird die LED als anzeige hier 
+    implementiert.
     """
     #Flag im Hauptfenster-Zustand ablegen
     hauptfenster.state["messung_laeuft"] = False
 
-    # Statusanzeige
+    #Statusanzeige
     status_var = tk.StringVar(value="Gestoppt")
     tk.Label(hauptfenster.frames["signal"], textvariable=status_var).pack(anchor="w", padx=200)
 
-    # EIN Button für Start/Stop
+    #EIN Button für Start/Stop
     button_toggle = create_button(frame_messung, text="Messung starten", primary=True)
     button_toggle.pack(anchor="w", pady=10, padx=10)
 
-    # Flag im Hauptfenster-Zustand ablegen
+    #Flag im Hauptfenster-Zustand ablegen
     hauptfenster.state["status_var"] = status_var
     hauptfenster.state["button_toggle"] = button_toggle
+
+    #Status für dei LED setzen
+    status_led =   tk.IntVar(value=1)
+    hauptfenster.state["led_var"] = status_led
 
     def start_stop_button():
         if not hauptfenster.state["messung_laeuft"]:
@@ -694,10 +690,10 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
                 bg="lightgreen",
                 activebackground="limegreen",
                 fg="black",
-                activeforeground="black",
+                activeforeground="black"
             )
             status_var.set("Messung läuft…")
-
+            status_led.set(0)
         else:
             # --- Messung BEENDEN ---
             stop_messung()   #hier drin sollte run_event.clear() usw. stehen
@@ -709,14 +705,30 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
                 bg="#1e88e5",
                 activebackground="#1565c0",
                 fg="white",
-                activeforeground="white",
+                activeforeground="white"
             )
             status_var.set("Gestoppt")
-            
+            status_led.set(1)
 
     button_toggle.config(command=start_stop_button)    
 
 
+def LED_status(frame_led, hauptfenster):
+
+    #LED/Anzeige erzeugen
+    status_led = hauptfenster.state["led_var"]
+    led = tk.Canvas(frame_led, width=60, height=60, highlightthickness=0, bg="#f5f7fa")
+    led.pack(expand=True, pady=(20, 0))
+    dot = led.create_oval(5, 5, 55, 55, fill="red", outline="black",width=2)  #start rot
+
+    def update_led(*_):
+        led.itemconfig(dot, fill="green" if status_led.get() == 0 else "red")
+    
+    update_led()
+    status_led.trace_add("write", update_led)
+
+    hauptfenster.state["led_canvas"] = led
+    hauptfenster.state["led_dot"] = dot
 
 def close_hauptfenster(frame_messung,hauptfenster):
 
@@ -747,6 +759,11 @@ def messung_pausieren(frame_messung,hauptfenster,messung_fort_button):
         stop_messung()
         hauptfenster.state["messung_laeuft"] = False
 
+        #Led
+        led_var = hauptfenster.state.get("led_var")
+        if led_var is not None:
+            led_var.set(1)
+
         status_var = hauptfenster.state.get("status_var")
         button_toggle = hauptfenster.state.get("button_toggle")
 
@@ -763,7 +780,13 @@ def messung_pausieren(frame_messung,hauptfenster,messung_fort_button):
             )
 
         if messung_fort_button is not None:
-            messung_fort_button.pack(anchor="w", padx=10, pady=5)
+            messung_fort_button.pack_configure(anchor="w", padx=10, pady=5)
+
+        #LED für die Reihenfolge hier paltzieren
+        frame_led = hauptfenster.state.get("frame_led")
+        if frame_led is not None:
+            frame_led.pack_forget()
+            frame_led.pack(expand=True, fill="both")
 
     messung_stopp_button = create_button(
         frame_messung,
@@ -802,6 +825,11 @@ def messung_fortsetzen(frame_messung,hauptfenster,value_radio_klick):
         # Zustand aktualisieren
         hauptfenster.state["messung_laeuft"] = True
 
+        #Led
+        led_var = hauptfenster.state.get("led_var")
+        if led_var is not None:
+            led_var.set(0)
+
         status_var = hauptfenster.state.get("status_var")
         button_toggle = hauptfenster.state.get("button_toggle")
 
@@ -829,6 +857,8 @@ def messung_fortsetzen(frame_messung,hauptfenster,value_radio_klick):
         primary=False,
     )
 
+    #Einmal an richtiger Stelle packen (Position wird festgelegt)
+    messung_fort_button.pack(anchor="w", padx=10, pady=5)
     #Button nicht anzeigen, mit pack_forget Button ausblenden, aber dieser ist erzeugt
     messung_fort_button.pack_forget()
 
@@ -1367,7 +1397,6 @@ def untermenue(hauptfenster):
 
     hauptfenster.config(menu=menuebar)
 
-    
 
 class Hauptfenster(tk.Tk):
     """
@@ -1408,8 +1437,7 @@ class Hauptfenster(tk.Tk):
             }
         
 
-def LED_status(frame_messung):
-    return
+
 
 def GUI():
 
@@ -1432,6 +1460,13 @@ def GUI():
     messung_fort_button = messung_fortsetzen(frame_messung_ss,hauptfenster,
                                              value_radio_klick)
     messung_pausieren(frame_messung_ss, hauptfenster,messung_fort_button)
+
+    #LED erzeugen usw
+    frame_led = tk.Frame(frame_messung_ss, bg="#f5f7fa")
+    frame_led.pack(expand=True, fill="both")
+    hauptfenster.state["frame_led"] = frame_led
+    LED_status(frame_led, hauptfenster)
+
     close_hauptfenster(frame_messung_ss, hauptfenster)
     eingabe_skalierung(frame_scale, hauptfenster)
 
