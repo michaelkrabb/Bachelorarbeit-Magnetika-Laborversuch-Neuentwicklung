@@ -29,6 +29,7 @@ from matplotlib.figure import Figure
 import matplotlib.animation as animation
 import queue
 import os
+import getpass
 
 #Tkinter für GUI
 import tkinter as tk
@@ -38,7 +39,7 @@ import tk_tools
 # gemeinsame Objekte aus functions_ac3.py holen:
 from .functions_ac3 import start_messung, stop_messung, data_queue, run_event,update_offset
 from .functions_ac3 import set_fortsetzen_modus, fortsetzen_modus, sample_rate, u_offset
-
+from .functions_ac3 import set_csv_ordner
 
 #Erstellen der Skalierungsfaktor Eingabe 
 
@@ -1000,12 +1001,10 @@ def datei_laden(hauptfenster,pfad):
 
         data = np.genfromtxt(pfad,delimiter=";",skip_header=1)
     
-        # 3 Spalten extrahieren
+        #3 Spalten extrahieren
         t  = data[:, 0]
-        f  = data[:, 1]
-        ux = data[:, 2]
-        iy = data[:, 3]
-        uy = data[:, 4]
+        ux = data[:, 1]
+        uy = data[:, 2]
 
     else: 
         messagebox.showerror("Kein gültiger Dateityp, bitte verwenden Sie" \
@@ -1255,7 +1254,7 @@ def eingabe_daten(fenster,hauptfenster):
     lbl_sample = tk.Label(frame_sample, text="Sample rate [S/s]:", bg="#f5f7fa")
     lbl_sample.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
-    sample_box = ttk.Combobox(frame_sample,values=[100,200,500,750,1000,1500,2000],
+    sample_box = ttk.Combobox(frame_sample,values=[100,200,500,750,1000,1500,2000,5000],
                                 state="readonly",width=10)
     sample_box.set(250)  # Standardwert
     sample_box.grid(row=0, column=1, padx=5, pady=5)
@@ -1372,6 +1371,23 @@ def optionen(hauptfenster):
 
     return nebenfenster
 
+def neuen_ordner(hauptfenster):
+
+    pfad = filedialog.askdirectory(
+        parent=hauptfenster,
+        title="Speicherordner für CSV-Dateien auswählen"
+    )
+
+    if not pfad:
+        return
+
+    set_csv_ordner(pfad)
+    messagebox.showinfo(
+        "Speicherort gesetzt",
+        f"CSV-Dateien werden nun hier gespeichert:\n{pfad}"
+    )
+   
+    return None
 
 def untermenue(hauptfenster):
     """
@@ -1388,15 +1404,46 @@ def untermenue(hauptfenster):
     menuebar = tk.Menu(hauptfenster)
 
     #Den Reiter erzeugen und darauf folgend die Optionen leiste
-
     optionmenu = tk.Menu(menuebar)
     optionmenu.add_command(label="Optionen",command=lambda:optionen(hauptfenster))
 
+    #um den Speicherort flexibel zu gestalten, von Gruppe zu Gruppe anpassbar
+    optionmenu.add_command(label="Speicherort erstellen",
+                           command=lambda:neuen_ordner(hauptfenster))
 
     menuebar.add_cascade(label="Einstellungen", menu=optionmenu)
+    
 
     hauptfenster.config(menu=menuebar)
 
+
+def willkommensfenster(hauptfenster):
+
+    popup = tk.Toplevel(hauptfenster)
+    popup.title("Willkommen")
+    popup.geometry("500x250")
+
+    popup.transient(hauptfenster)
+    popup.grab_set()
+
+    tk.Label(
+        popup,
+        text="Willkommen zum Messprogramm Magnetika",
+        font=("Arial", 14, "bold")
+    ).pack(pady=10)
+
+    tk.Label(
+        popup,
+        text="Bitte wählen Sie einen Speicherort\nfür die Messdaten aus."
+    ).pack(pady=10)
+
+    create_button(
+        popup,
+        text="Ordner auswählen",
+        command=lambda: neuen_ordner(hauptfenster)
+    ).pack(pady=5)
+
+    return None
 
 class Hauptfenster(tk.Tk):
     """
@@ -1441,21 +1488,25 @@ class Hauptfenster(tk.Tk):
 
 def GUI():
 
+    #Hauptfenster
     hauptfenster = Hauptfenster()
 
-    # LINKS
+    #Willkommensfenster udn Speicherort
+    willkommensfenster(hauptfenster)
+
+    #LINKS
     frame_scale, frame_messung_ss, frame_hyst_perm,frame_cursor = container_left(hauptfenster)
 
-    # RECHTS: Frames
+    #RECHTS: Frames
     frame_signal, frame_hysterese, frame_perme = plot_frames(hauptfenster)
 
-    # Live-Plot oben
+    #Live-Plot oben
     signal_live_plot(hauptfenster)
 
-    # Radiobuttons + Umschaltlogik
+    #Radiobuttons + Umschaltlogik
     value_radio_klick = hyst_perm_auswahl(frame_hyst_perm, hauptfenster)
 
-    # Buttons links
+    #Buttons links
     mess_button(frame_messung_ss, hauptfenster,value_radio_klick)
     messung_fort_button = messung_fortsetzen(frame_messung_ss,hauptfenster,
                                              value_radio_klick)

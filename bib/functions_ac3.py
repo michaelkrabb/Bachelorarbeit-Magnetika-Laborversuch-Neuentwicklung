@@ -39,11 +39,10 @@ run_event = threading.Event()
 data_queue = queue.Queue()
 
 #Angaben des Pfads für die Datei der Messdaten
-
-CSV_Ordner= r'C:\Users\Michael Krabb\Desktop\python_freifach\BAC_CSV'
+#CSV_Ordner= r'C:\Users\Michael Krabb\Desktop\python_freifach\BAC_CSV' für anfängliche Tests
 
 #Variablen
-fs = 250            #Sample per seconds
+fs = 1000           #Sample per seconds
 sc = 10             #Zeit 
 R = 1               #Ohm, Wert des Shunt-Widerstands
 t_index = 0         #Zeitindex für alle Messungen (in Samples)
@@ -54,6 +53,11 @@ fortsetzen_modus = False    #wir setzen eigentlich eine Flag
 
 # aktuelle CSV-Datei
 aktuelle_csv_datei = None
+
+def set_csv_ordner(pfad):
+    global CSV_Ordner
+    CSV_Ordner = pfad
+
 
 def sample_rate(new_rate):
     global fs
@@ -71,13 +75,11 @@ def kontrolle(x_werte,y_werte,n):
     if n == 0:
         raise RuntimeError("Keine Samples empfangen.")
 
-def berechnungen(x_werte,y_werte,n):
+def berechnungen(ux_werte,uy_werte,n):
 
     #Berechnungen
-    ix_werte = x_werte/R
     zeit_s = np.arange(n, dtype=float) / fs         #relative Messzeit in Sekunden
-    mess_frequenz = np.full(n, "", dtype=object)    #hier dann mittels GUI die werte einspeichern
-    daten = np.column_stack([zeit_s,mess_frequenz,x_werte,ix_werte,y_werte-u_offset])
+    daten = np.column_stack([zeit_s,ux_werte,uy_werte-u_offset])
     return daten
 
 
@@ -90,6 +92,9 @@ def csv_append_rows(pfad,daten):
 
 def csv_initialisieren():
 
+    #prüfung ob ordner erstellt ist
+    os.makedirs(CSV_Ordner, exist_ok=True)
+
     # Aktuelles Datum und Uhrzeit im Format YYYYMMDD_HHMMSS
     zeitstempel = datetime.now().strftime("%Y%m%d_%H%M%S")
     
@@ -101,7 +106,7 @@ def csv_initialisieren():
 
     with open(CSV_Path, mode="w", newline="") as file:
         writer = csv.writer(file, delimiter=";")
-        kopfzeile = np.array(["Zeit","Frequenz","Spannung_x","Strom_x","Spannung_y"])
+        kopfzeile = np.array(["Zeit","Spannung_x","Spannung_y"])
         writer.writerow(kopfzeile)
 
     print("CSV-Datei wurde erfolgreich erstellt!")
@@ -125,7 +130,6 @@ def try_open_device():
 
     try:
         device = dwf.Device()
-        # Lazy-Open-Schutz: Zugriff erzwingen
         _ = device.name
         _ = device.serial_number
         return device
