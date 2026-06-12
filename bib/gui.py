@@ -113,6 +113,10 @@ def save_scale(entry_x, entry_y,hauptfenster):
 
 def eingabe_skalierung(frame_scale,hauptfenster):
 
+    """
+        Erstellt die frames im Hauptfenster 
+        erzeugt die Labels und Entrys also Eingabefelder
+    """
     
     frame_x = tk.Frame(frame_scale, bg="#f5f7fa")
     frame_x.grid(row=0, column=0,padx=4,pady=4,sticky="ew")
@@ -216,6 +220,10 @@ def clear_live_plots(hauptfenster):
 
 def zoom_funktion(frame):
 
+    """
+        Zoom Funktion mittels Mausrad. Funktioniert nur im Messframe
+    """
+
     ax = frame["ax"]
     canvas = frame["canvas"]
     zoom_faktor = 1.2
@@ -290,6 +298,7 @@ def zoom_funktion(frame):
 
 
 def signal_live_plot(hauptfenster):
+
     """
     live Plot des Signales über die Zeit.
     Das bedeutet die Spannung an der Stelle x über den Shunt Widerstand und
@@ -358,7 +367,9 @@ def signal_live_plot(hauptfenster):
 def hysterese_live_plot(hauptfenster):
 
     """
-    Erstellt ein Digramm welches die Hysterese darstellt
+        Erstellt ein Digramm welches die Hysterese darstellt. Verwendet die 
+        Skalierungsfaktoren.
+
     """
      
     frame_signal = hauptfenster.frames["hysterese"]
@@ -370,10 +381,10 @@ def hysterese_live_plot(hauptfenster):
     fig = Figure(dpi=100)  # Keine feste figsize, nur DPI
     fig.patch.set_facecolor("#f5f7fa")
     fig.subplots_adjust(
-        left=0.07,   # links  (0..1, kleiner = näher am Rand)
-        right=0.98,  # rechts
-        top=0.95,    # oben
-        bottom=0.1  # unten
+        left=0.07,   #links  (0..1, kleiner = näher am Rand)
+        right=0.98,  #rechts
+        top=0.95,    #oben
+        bottom=0.1   #unten
     )
     ax = fig.add_subplot(111)
     #ax.set_title("Hysterese")
@@ -470,7 +481,7 @@ def permeabilitaet_live_plot(hauptfenster):
     ax = fig.add_subplot(111)
     #ax.set_title("Hysterese")
     ax.set_xlabel("H [A/m]")
-    ax.set_ylabel(r"Permeabilität $\mu_r$")
+    ax.set_ylabel(r"differentielle Permeabilität $\mu_diff$")
     ax.set_facecolor("#ffffff")
     ax.grid(True, linestyle=":", color="#d0d0d0", alpha=0.7)
 
@@ -506,11 +517,17 @@ def permeabilitaet_live_plot(hauptfenster):
     return frame_signal    
     
 
-"""
-Die folgende Funktion erzeugt Rahmen für die zwei Diagramme
-"""
+
 
 def plot_frames(hauptfenster):
+
+    """
+        Die folgende Funktion erzeugt Rahmen für die zwei Diagramme.
+        Das bedeutet die Container in dennen man die entrys usw. zuordnen kann
+        Dient zur Positionierung und um das Gui aufgeräumter darzustellen.
+
+    """
+
 
     #Container für die Frames erzeugen
     right_container = tk.Frame(hauptfenster, bg="#e4e7ec")
@@ -550,21 +567,22 @@ def plot_frames(hauptfenster):
 
     return frame_signal, frame_hysterese, frame_perme
 
-"""
-Funktion wird benötigt um die Daten zu aktualisieren
-Die Daten kann man sich aus der queue holen.
-Somit muss man nicht auf die csv zugreifen und erhält eine einfache Aktualisierung 
-der Daten
-"""
+
 
 def update_data(hauptfenster):
 
     """
-    Wir holen also die neuen Daten aus der queue
+    
+        Funktion wird benötigt um die Daten zu aktualisieren
+        Die Daten kann man sich aus der queue holen.
+        Somit muss man nicht auf die csv zugreifen und erhält eine einfache Aktualisierung 
+        der Daten
+        
+        Wir holen also die neuen Daten aus der queue
     """
     frame_signal = hauptfenster.frames["signal"]
     frame_hyst   = hauptfenster.frames["hysterese"]
-    frame_perm   = hauptfenster.frames["permeabilität"]  # NEU
+    frame_perm   = hauptfenster.frames["permeabilität"]  #NEU
 
     if not hasattr(frame_signal, "live"):
         return
@@ -578,7 +596,7 @@ def update_data(hauptfenster):
 
     try:
         while True:
-            t, x, y = data_queue.get_nowait()  # nicht blockieren
+            t, x, y = data_queue.get_nowait()  #nicht blockieren
             ts.append(t); ux.append(x); uy.append(y)
             drained += 1
 
@@ -587,7 +605,7 @@ def update_data(hauptfenster):
                 b_scale = hauptfenster.state["scale_B"]
 
                 if h_scale is None or b_scale is None:
-                    continue  # noch nicht gesetzt → überspringen
+                    continue  #noch nicht gesetzt → überspringen
                 
                 H = x * h_scale
                 B = (y - u_offset) * b_scale
@@ -617,13 +635,13 @@ def update_data(hauptfenster):
         live["ax"].relim(); live["ax"].autoscale_view()
         live["canvas"].draw_idle()
 
-        # Hystereseplot
+        #Hystereseplot
         if live_hyst is not None:
             live_hyst["line_hb"].set_data(live_hyst["H"], live_hyst["B"])
             live_hyst["ax"].relim(); live_hyst["ax"].autoscale_view()
             live_hyst["canvas"].draw_idle()
 
-        # Permeabilitätsplot
+        #Permeabilitätsplot
         if live_perm is not None and len(live_perm["H"]) > 2:
             H_arr = np.asarray(live_perm["H"])
             B_arr = np.asarray(live_perm["B"])
@@ -715,6 +733,13 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
 
 
 def LED_status(frame_led, hauptfenster):
+
+    """
+        Erzeugt die LED. Dient als reiner Indikator das die Messung läuft.
+        Das bedeutet selbst wenn nichts angezeigt wird weis man dennoch, dass
+        die Messung gestartet wurde
+        
+    """
 
     #LED/Anzeige erzeugen
     status_led = hauptfenster.state["led_var"]

@@ -55,20 +55,70 @@ fortsetzen_modus = False    #wir setzen eigentlich eine Flag
 aktuelle_csv_datei = None
 
 def set_csv_ordner(pfad):
+
+    """
+        Ändert bzw. speichert in der Variable CSV_Ordner den
+        aktuellen Pfad in dem die Daten als csv abgespeichert werden.
+
+        Args:
+            pfad
+
+        Returns:
+            None
+    """
+
     global CSV_Ordner
     CSV_Ordner = pfad
 
 
 def sample_rate(new_rate):
+
+    """
+        Speichert die neuste Sample rate S/s ab.
+        
+        Args:
+            new_rate
+
+        Returns:
+            None
+
+    """
     global fs
     fs = new_rate
 
 def update_offset(wert):
+
+    """
+        Speichert den eingestellen Offsetwert ab
+        
+        Args:
+            wert
+
+        Returns:
+            None
+
+    """
+    
     global u_offset
     u_offset = wert
 
 
 def kontrolle(x_werte,y_werte,n):
+
+    """
+        Dient zur Kontrolle der Messwerte es muss zu jedem x eine 
+        y Wert geben. Ist das nicht der Fall wird eien runtime Error ausgelöst.
+        Das bedeutet also die gleiche Anzahl an Spannungs x Werten muss man für 
+        Spannungswerte y haben. Wird nciht am Gui dargestellt ist ein
+        Kontrollwerkzeug für den oder die Programmier:in für die csv datei
+
+        Args:
+            x_werte, y_werte
+        
+        Returns:
+            Fehlermeldung (siehe print(ausgabe))
+    """
+
     if len(x_werte) != len(y_werte):
         return print("Ein Fehler ist in der Messung aufgetreten" 
         "Überprüfen Sie die Verbindungen")
@@ -77,6 +127,21 @@ def kontrolle(x_werte,y_werte,n):
 
 def berechnungen(ux_werte,uy_werte,n):
 
+    """
+        Diese Funktion berechent die Zeit mittels der Sample rate.
+        Zusätzlich wrid die Variable daten eingeführt, wodurch mittels 
+        stack funktion die Daten für Zeit, ux_werte und uy_werte-u_offset
+        eingetragen werden. Es hadnelt sich um ene Numpy Array.
+
+        Args:
+            ux_werte,uy_werte,n
+        
+        Returns:
+            daten
+
+    """
+
+
     #Berechnungen
     zeit_s = np.arange(n, dtype=float) / fs         #relative Messzeit in Sekunden
     daten = np.column_stack([zeit_s,ux_werte,uy_werte-u_offset])
@@ -84,7 +149,19 @@ def berechnungen(ux_werte,uy_werte,n):
 
 
 def csv_append_rows(pfad,daten):
-    """Eine neue Messzeile anhängen"""
+
+    """
+        Diese Funktion erstellt einen neue Zeile für die csv_datei.
+
+        Args:
+            pfad, daten
+        
+        Returns:
+            None
+    """
+
+
+    #Eine neue Messzeile anhängen
     with open(pfad, mode="a", newline="", encoding="utf-8") as file:
         writer = csv.writer(file, delimiter=";")
         writer.writerows(daten)
@@ -92,16 +169,40 @@ def csv_append_rows(pfad,daten):
 
 def csv_initialisieren():
 
+    """
+        In dieser FUnktion wird die csv Initialisiert. DAs bedeutet es wird
+        geprüft ob der Ordner erstellt ist in dem die csv erzeugt wird. 
+        Jede Datei wird als messung udn mit einem Zeitstempel ausgestattet.
+
+        In dieser FUnktion wird die Kopfzeile erstellt.
+            --> "Zeit","Spannung_x","Spannung_y"
+
+        Wichtig zu wissen für die spätere Auswertung.
+        In der Konsole wird im Moment noch die Ausgabe des Pfades und
+        ob erfolgreich erstellt wurde.
+
+
+        NOCH INS GUI GEBEN
+
+        Args:
+            None
+
+        Returns:
+            CSV_Path 
+
+    """
+
+
     #prüfung ob ordner erstellt ist
     os.makedirs(CSV_Ordner, exist_ok=True)
 
-    # Aktuelles Datum und Uhrzeit im Format YYYYMMDD_HHMMSS
+    #Aktuelles Datum und Uhrzeit im Format YYYYMMDD_HHMMSS
     zeitstempel = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Dateiname mit Zeitstempel
+    #Dateiname mit Zeitstempel
     dateiname = f"messung_{zeitstempel}.csv"
     
-    # Gesamter Pfad: Ordner + Dateiname
+    #Gesamter Pfad: Ordner + Dateiname
     CSV_Path = os.path.join(CSV_Ordner, dateiname)
 
     with open(CSV_Path, mode="w", newline="") as file:
@@ -115,6 +216,18 @@ def csv_initialisieren():
 
 
 def device_verfügbar():
+
+    """ 
+        Prüft ob das Gerät angesteckt ist. Ohne Gerät funktioniert keine 
+        Messung
+
+        Args:
+            None
+        
+        Returns:
+            0 oder len(list_geräte)
+    """
+
     try:
         list_geräte = list(dwf.Device.enumerate())
         return len(list_geräte)
@@ -124,6 +237,20 @@ def device_verfügbar():
 
 
 def try_open_device():
+
+    """
+        Öffnet stellt also Verbindung mit dem AD3 her
+        Zuerst erfolgt die Überprüfung ob Überhaupt ein Gerät angesteckt ist.
+        DAnach wird es geöffnet.
+
+        Args:
+            None
+        
+        Return:
+            None, device
+
+    """
+
 
     if device_verfügbar() == 0:
         return None
@@ -147,6 +274,18 @@ def set_fortsetzen_modus(value: bool):
     fortsetzen_modus = value
 
 def start_device():
+
+    """
+        Eine Funktion um das Gerät zus tarten
+
+        Args: 
+            None
+
+        Returns:
+            device
+
+    """
+
     #dient nur dazu das Device zu starten
     device = try_open_device()
     if device == None:
@@ -157,6 +296,10 @@ def start_device():
     return device
 
 def start_messung():
+
+    """
+        Startet die Messung
+    """
 
     global fortsetzen_modus, aktuelle_csv_datei, t_index
 
