@@ -47,6 +47,7 @@ sc = 10             #Zeit
 R = 1               #Ohm, Wert des Shunt-Widerstands
 t_index = 0         #Zeitindex für alle Messungen (in Samples)
 u_offset = 0        #Offset 
+messung_index = 0
 
 #globale Variable für Messung fortsetzen
 fortsetzen_modus = False    #wir setzen eigentlich eine Flag 
@@ -102,6 +103,20 @@ def update_offset(wert):
     global u_offset
     u_offset = wert
 
+def get_offset():
+    return u_offset
+
+def index_csv():
+
+    global messung_index
+    messung_index += 1
+
+def get_messung_index():
+    return messung_index
+
+def reset_messung_index():
+    global messung_index
+    messung_index = 0
 
 def kontrolle(x_werte,y_werte,n):
 
@@ -199,8 +214,8 @@ def csv_initialisieren():
     #Aktuelles Datum und Uhrzeit im Format YYYYMMDD_HHMMSS
     zeitstempel = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    #Dateiname mit Zeitstempel
-    dateiname = f"messung_{zeitstempel}.csv"
+    #Dateiname mit Zeitstempel und der globalen Messung index Variable
+    dateiname = f"messung_{zeitstempel}_{messung_index}.csv"
     
     #Gesamter Pfad: Ordner + Dateiname
     CSV_Path = os.path.join(CSV_Ordner, dateiname)
@@ -301,7 +316,8 @@ def start_messung():
         Startet die Messung
     """
 
-    global fortsetzen_modus, aktuelle_csv_datei, t_index
+    global fortsetzen_modus, aktuelle_csv_datei, t_index, messung_index
+
 
     if fortsetzen_modus:
         print("Messung wird fortgesetzt")
@@ -316,7 +332,6 @@ def start_messung():
         device = start_device()
         print(f"{device}")
         print("Gerät: ", tuple(d.name for d in dwf.Device.enumerate()))
-
         close_device(device) #zuvor war nur sicherheit daher Gerät schließen, weil in oszi richtig aufgemacht
   
     run_event.set()
@@ -373,7 +388,7 @@ def sample_update():
 
             for j in range(n):
                 try:
-                    data_queue.put((float(t_arr[j]), float(x_werte[j]), float(y_werte[j])), timeout=0.1)
+                    data_queue.put((float(t_arr[j]), float(x_werte[j]), float(y_werte[j] - u_offset)))
                 except queue.Full:
                     break
 

@@ -36,19 +36,17 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import tk_tools
 
-# gemeinsame Objekte aus functions_ac3.py holen:
+#gemeinsame Objekte aus functions_ac3.py holen:
 from .functions_ac3 import start_messung, stop_messung, data_queue, run_event,update_offset
-from .functions_ac3 import set_fortsetzen_modus, fortsetzen_modus, sample_rate, u_offset
-from .functions_ac3 import set_csv_ordner
-
-#Erstellen der Skalierungsfaktor Eingabe 
+from .functions_ac3 import set_fortsetzen_modus, fortsetzen_modus, sample_rate, get_offset
+from .functions_ac3 import set_csv_ordner, index_csv, get_messung_index, reset_messung_index
 
 def create_button(fenster, text, command=None, primary=False):
 
     """
-    Folgende Funktion erzeugt Buttons welche dann einfahc verwenden werden 
-    können, um zu gewährleisten, dass man den gleichen button hat oder
-    schnell eine Änderung machen kann, vor allem für dei Optik sehr einfach
+        Folgende Funktion erzeugt Buttons welche dann einfahc verwenden werden 
+        können, um zu gewährleisten, dass man den gleichen button hat oder
+        schnell eine Änderung machen kann, vor allem für dei Optik sehr einfach
     """
 
 
@@ -318,10 +316,10 @@ def signal_live_plot(hauptfenster):
     #frame_signal.update_idletasks()
 
     #erstellen des Plots mit Matplotlib
-    fig = Figure(dpi=100)  # Keine feste figsize, nur DPI
+    fig = Figure(dpi=100)  #Keine feste figsize, nur DPI
     fig.patch.set_facecolor("#f5f7fa")
     ax = fig.add_subplot(111)
-    # Platz für Titel und Achsen
+    #Platz für Titel und Achsen
     fig.subplots_adjust(top=0.9, bottom=0.25, left=0.07, right=0.98)
     #ax.set_title("Spannungen an den Messpunkten x und y")
     ax.set_xlabel("Zeit [s]")
@@ -334,6 +332,13 @@ def signal_live_plot(hauptfenster):
     (line_y,) = ax.plot([], [], linewidth=1.2, label="Spannung_y")
     ax.legend(loc="best")
 
+    reset_button = tk.Button(
+        frame_signal,
+        text="↺ Reset",
+        command=lambda: reset_plot_ansicht(frame_signal.live),
+        font=("Arial", 8)
+    )
+    reset_button.pack(anchor="ne")
 
     #Canvas in Tk platzieren
     canvas = FigureCanvasTkAgg(fig, master=frame_signal)
@@ -343,7 +348,7 @@ def signal_live_plot(hauptfenster):
     # Beim Ändern der Framegröße neu zeichnen
     frame_signal.bind("<Configure>", lambda e: canvas.draw())
     
-    #erstellen eines Puffers und update_data befüllt die Liste
+    #erstellen eines buffers und update_data befüllt die Liste
     frame_signal.live = {
         #"frame": frame,      
         "ax": ax,
@@ -354,6 +359,37 @@ def signal_live_plot(hauptfenster):
         "ux": [],            # Spannung_x
         "uy": []             # Spannung_y
     }
+
+    
+
+   
+
+    def on_move_signal(event):
+        if event.inaxes is not ax:
+            return
+
+        ts = frame_signal.live["ts"]
+        ux = frame_signal.live["ux"]
+        uy = frame_signal.live["uy"]
+
+        if not ts or not ux or not uy:
+            return
+
+        t_cursor = event.xdata
+
+        t_arr = np.asarray(ts)
+        idx = int(np.argmin(np.abs(t_arr - t_cursor)))
+
+        cursor_ux_var = hauptfenster.state.get("cursor_ux_var")
+        cursor_uy_var = hauptfenster.state.get("cursor_uy_var")
+
+        if cursor_ux_var is not None:
+            cursor_ux_var.set(f"Ux = {ux[idx]:.3f} V")
+
+        if cursor_uy_var is not None:
+            cursor_uy_var.set(f"Uy = {uy[idx]:.3f} V")
+
+    canvas.mpl_connect("motion_notify_event", on_move_signal)
 
     #Zoom per Mausrad aktivieren
     zoom_funktion(frame_signal.live)
@@ -397,6 +433,13 @@ def hysterese_live_plot(hauptfenster):
     (line_hb,) = ax.plot([], [], linewidth=1.2, label="B(H)")
     ax.legend(loc="best")
 
+    reset_button = tk.Button(
+        frame_signal,
+        text="↺ Reset",
+        command=lambda: reset_plot_ansicht(frame_signal.live),
+        font=("Arial", 8)
+    )
+    reset_button.pack(anchor="ne")
 
     #Cancas in Tk platzieren
     canvas = FigureCanvasTkAgg(fig, master=frame_signal)
@@ -415,6 +458,8 @@ def hysterese_live_plot(hauptfenster):
         "H": [],            # Spannung_x
         "B": []             # Spannung_y
     }
+
+    
 
     #Cursor Maus update
     def on_move(event):
@@ -489,8 +534,16 @@ def permeabilitaet_live_plot(hauptfenster):
     (line_mu,) = ax.plot([], [], linewidth=1.2, label="\u03BC(H)")
     ax.legend(loc="best")
 
+    reset_button = tk.Button(
+        frame_signal,
+        text="↺ Reset",
+        command=lambda: reset_plot_ansicht(frame_signal.live),
+        font=("Arial", 8)
+    )
+    reset_button.pack(anchor="ne")
 
-    #Cancas in Tk platzieren
+
+    #Canvas in Tk platzieren
     canvas = FigureCanvasTkAgg(fig, master=frame_signal)
     canvas.draw()
     canvas.get_tk_widget().pack(fill="both", expand=True)
@@ -508,6 +561,48 @@ def permeabilitaet_live_plot(hauptfenster):
         "B": []             # Spannung_y
     }
 
+    
+    def on_move_mu(event):
+
+        if event.inaxes is not ax:
+            return
+
+        H_vals = frame_signal.live["H"]
+        B_vals = frame_signal.live["B"]
+
+        if len(H_vals) < 3 or len(B_vals) < 3:
+            return
+
+        H_arr = np.asarray(H_vals)
+        B_arr = np.asarray(B_vals)
+
+        mu0 = 4 * np.pi * 1e-7
+        dH = np.gradient(H_arr)
+        dB = np.gradient(B_arr)
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            mu_r = dB / dH / mu0
+            mu_r[~np.isfinite(mu_r)] = np.nan
+
+        h_cursor = event.xdata
+        idx = int(np.nanargmin(np.abs(H_arr - h_cursor)))
+
+        cursor_H_var = hauptfenster.state.get("cursor_H_var")
+        cursor_B_var = hauptfenster.state.get("cursor_B_var")
+
+        if cursor_H_var is not None:
+            cursor_H_var.set(f"H = {H_arr[idx]:.2f} A/m")
+
+        if cursor_B_var is not None:
+            mu_val = mu_r[idx]
+
+            if np.isnan(mu_val):
+                cursor_B_var.set("μdiff = –")
+            else:
+                cursor_B_var.set(f"μdiff = {mu_val:.0f}")
+
+    canvas.mpl_connect("motion_notify_event", on_move_mu)
+
     #Zoom per Mausrad aktivieren
     zoom_funktion(frame_signal.live)
 
@@ -516,8 +611,19 @@ def permeabilitaet_live_plot(hauptfenster):
 
     return frame_signal    
     
+def reset_plot_ansicht(live):
 
+    """
+        Setzt die Ansicht der Plots zurück.
+    """
+    ax = live["ax"]
+    canvas = live["canvas"]
 
+    ax.set_autoscale_on(True)
+    ax.relim()
+    ax.autoscale_view()
+
+    canvas.draw_idle()
 
 def plot_frames(hauptfenster):
 
@@ -608,7 +714,7 @@ def update_data(hauptfenster):
                     continue  #noch nicht gesetzt → überspringen
                 
                 H = x * h_scale
-                B = (y - u_offset) * b_scale
+                B = y * b_scale
 
                 if live_hyst is not None:
                     live_hyst["H"].append(H)
@@ -665,15 +771,16 @@ def update_data(hauptfenster):
 def mess_button(frame_messung,hauptfenster,value_radio_klick):
 
     """
-    Die Funktion mess_button erzeugt die Buttons
-    Messung starten und stoppen
+        Die Funktion mess_button erzeugt die Buttons
+        Messung starten und stoppen
 
-    DIe FUnktion gibt nichts zurück. Gleichbedeutent ist der klick einer der 
-    Buttons wiochtig für die Messung denn wirklich erst beim klicken wird die 
-    Messung gestartet oder gestopp. Außerdem wird die LED als anzeige hier 
-    implementiert.
+        DIe FUnktion gibt nichts zurück. Gleichbedeutent ist der klick einer der 
+        Buttons wiochtig für die Messung denn wirklich erst beim klicken wird die 
+        Messung gestartet oder gestopp. Außerdem wird die LED als anzeige hier 
+        implementiert.
     """
-    #Flag im Hauptfenster-Zustand ablegen
+    
+    #Flag im Hauptfenster Zustand ablegen
     hauptfenster.state["messung_laeuft"] = False
 
     #Statusanzeige
@@ -697,6 +804,11 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
             # --- Messung STARTEN ---
 
             #Mit jeder neuen Messung muss das Interface entleert werden
+            index_csv()
+
+            #um den index hochzuzählen für jede einzelne Messung
+            hauptfenster.state["messung_var"].set(f"{get_messung_index():02d}")
+
             clear_live_plots(hauptfenster)  
 
             start_messung()  #h weiter run_event.set() verwenden
@@ -730,6 +842,7 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
             status_led.set(1)
 
     button_toggle.config(command=start_stop_button)    
+
 
 
 def LED_status(frame_led, hauptfenster):
@@ -935,24 +1048,115 @@ def container_left(hauptfenster):
                                 font=("Arial", 10, "bold"))
     frame_cursor.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))                             
 
+    
+
     #StringVars für H und B,Variable an widget binden
     cursor_H_var = tk.StringVar(value="H: –")
     cursor_B_var = tk.StringVar(value="B: –")
 
+    cursor_ux_var = tk.StringVar(value="Ux: –")
+    cursor_uy_var = tk.StringVar(value="Uy: –")
+
+    #Zeile 1: H und Ux
+    frame_cursor_zeile1 = tk.Frame(frame_cursor, bg="#f5f7fa")
+    frame_cursor_zeile1.pack(anchor="w")
+
+    #Zeile 2: B und Uy
+    frame_cursor_zeile2 = tk.Frame(frame_cursor, bg="#f5f7fa")
+    frame_cursor_zeile2.pack(anchor="w")
+
     #erstellen des Labels
-    label_H = tk.Label(frame_cursor, textvariable=cursor_H_var,
+    label_H = tk.Label(frame_cursor_zeile1,width=10, textvariable=cursor_H_var,
                      anchor="w", font=("Arial", 10))
 
-    label_H.pack(anchor="w")
+    label_H.pack(side="left")
 
-    label_B = tk.Label(frame_cursor, textvariable=cursor_B_var,
+    label_B = tk.Label(frame_cursor_zeile2,width=10, textvariable=cursor_B_var,
                      anchor="w", font=("Arial", 10))
 
-    label_B.pack(anchor="w")
+    label_B.pack(side="left")
+
+    
+
+    #für signal label
+    label_Ux = tk.Label(frame_cursor_zeile1, width=10, textvariable=cursor_ux_var,
+                     anchor="w", font=("Arial", 10))
+
+    label_Ux.pack(side="left", padx=30)
+
+    label_Uy = tk.Label(frame_cursor_zeile2, width=10, textvariable=cursor_uy_var,
+                     anchor="w", font=("Arial", 10))
+
+    label_Uy.pack(side="left", padx=30)
+
+    #Frame für Informationen wie Sample Rate und Messung Anazahl
+    frame_info = tk.Frame(frame_cursor, bg="#f5f7fa")
+    frame_info.pack(anchor="w", pady=(15, 2))
+
+    #Linker Block: Messung
+    frame_messung_anzeige = tk.Frame(frame_info, bg="#f5f7fa")
+    frame_messung_anzeige.pack(side="left")
+
+    # Rechter Block: Sample Rate
+    frame_sample_anzeige = tk.Frame(frame_info, bg="#f5f7fa")
+    frame_sample_anzeige.pack(side="left", padx=(25, 0))
+
+    #Anzeige der aktuellen Messung die Anzahl wird angezeigt
+    messung_var = tk.StringVar(value="01")
+
+    tk.Label(
+        frame_messung_anzeige,
+        text="Messung:",
+        font=("Arial", 10, "bold")
+    ).pack(anchor="w")
+
+    tk.Label(
+        frame_messung_anzeige,
+        textvariable=messung_var,
+        width=4,
+        relief="sunken",
+        bd=2,
+        bg="white",
+        font=("Arial", 12, "bold")
+    ).pack(side="left")
+
+    tk.Button(
+        frame_messung_anzeige,
+        text="Reset",
+        command=reset_messung_index,
+        width=5,
+        font=("Arial", 8)
+    ).pack(side="left", padx=5)
+
+
+    sample_var = tk.StringVar(value="2000 S/s")
+
+    tk.Label(
+        frame_sample_anzeige,
+        text="Sample Rate:",
+        font=("Arial", 10, "bold")
+    ).pack(anchor="w")
+
+    tk.Label(
+        frame_sample_anzeige,
+        textvariable=sample_var,
+        width=8,
+        relief="sunken",
+        bd=2,
+        bg="white",
+        font=("Arial", 10)
+    ).pack(anchor="w")
+        
+    #Im GUI-Zustand speichern
+    hauptfenster.state["messung_var"] = messung_var
+    hauptfenster.state["sample_var"] = sample_var    
 
     #im Zustand des Hauptfensters merken, damit der Plot darauf zugreifen kann
     hauptfenster.state["cursor_H_var"] = cursor_H_var
     hauptfenster.state["cursor_B_var"] = cursor_B_var
+    hauptfenster.state["cursor_ux_var"] = cursor_ux_var
+    hauptfenster.state["cursor_uy_var"] = cursor_uy_var
+    hauptfenster.state["label_B"] = label_B
 
     return frame_scale,frame_messung_ss,frame_hysterese_perme,frame_cursor
 
@@ -960,16 +1164,22 @@ def container_left(hauptfenster):
 def hyst_perm_auswahl(frame_hyst_perm,hauptfenster):
     
     value_radio = tk.IntVar(value=0)
+    label_B = hauptfenster.state["label_B"] 
+    cursor_B_var = hauptfenster.state["cursor_B_var"]
+
 
     def on_radio_change(*args):
 
         if value_radio.get() == 0:
             hauptfenster.frames["permeabilität"].grid_remove()
             hauptfenster.frames["hysterese"].grid()
+            label_B.config(textvariable=cursor_B_var)
+            cursor_B_var.set("B: –")
+
         else:
             hauptfenster.frames["hysterese"].grid_remove()
             hauptfenster.frames["permeabilität"].grid()
-
+            cursor_B_var.set("μdiff: –")
 
     value_radio.trace_add("write", on_radio_change)
     on_radio_change()
@@ -1038,7 +1248,9 @@ def datei_laden(hauptfenster,pfad):
        
     #Berechnen mit den Skalierungsfaktoren und Offset
     h = ux * hauptfenster.state.get("scale_H")
-    b = (uy - u_offset) * hauptfenster.state.get("scale_B")
+    offset = get_offset()
+    b = (uy - offset) * hauptfenster.state.get("scale_B")
+    print("Verwendeter Offset beim Laden:", offset)
 
     if h is None or b is None:
 
@@ -1279,16 +1491,18 @@ def eingabe_daten(fenster,hauptfenster):
     lbl_sample = tk.Label(frame_sample, text="Sample rate [S/s]:", bg="#f5f7fa")
     lbl_sample.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
-    sample_box = ttk.Combobox(frame_sample,values=[100,200,500,750,1000,1500,2000,5000],
+    sample_box = ttk.Combobox(frame_sample,values=[100, 200, 500, 1000, 2000, 5000],
                                 state="readonly",width=10)
-    sample_box.set(250)  # Standardwert
+    sample_box.set(2000)  #Standardwert
     sample_box.grid(row=0, column=1, padx=5, pady=5)
+    sample_rate(2000)
 
     #Werte bei jeder Änderung übernehmen
     def sample_change(event):
         try:
             wert = int(sample_box.get())
             sample_rate(wert)
+            hauptfenster.state["sample_var"].set(f"{wert} S/s")
             messagebox.showinfo("Neue Sample Rate: [S/s]",f"{wert}")
         except ValueError:
             messagebox.showerror("Fehler", "Ungültige Sample-Rate.")
@@ -1404,7 +1618,7 @@ def neuen_ordner(hauptfenster):
     )
 
     if not pfad:
-        return
+        return False
 
     set_csv_ordner(pfad)
     messagebox.showinfo(
@@ -1412,7 +1626,7 @@ def neuen_ordner(hauptfenster):
         f"CSV-Dateien werden nun hier gespeichert:\n{pfad}"
     )
    
-    return None
+    return True
 
 def untermenue(hauptfenster):
     """
@@ -1451,6 +1665,10 @@ def willkommensfenster(hauptfenster):
     popup.transient(hauptfenster)
     popup.grab_set()
 
+    def ordner_auswaehlen():
+        if neuen_ordner(hauptfenster):
+            popup.destroy()
+
     tk.Label(
         popup,
         text="Willkommen zum Messprogramm Magnetika",
@@ -1465,10 +1683,13 @@ def willkommensfenster(hauptfenster):
     create_button(
         popup,
         text="Ordner auswählen",
-        command=lambda: neuen_ordner(hauptfenster)
+        command = ordner_auswaehlen
     ).pack(pady=5)
 
-    return None
+    
+
+
+
 
 class Hauptfenster(tk.Tk):
     """
