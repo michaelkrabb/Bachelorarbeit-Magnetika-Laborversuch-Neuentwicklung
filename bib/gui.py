@@ -293,7 +293,17 @@ def zoom_funktion(frame):
     canvas.mpl_connect("motion_notify_event", on_move)
 
    
+def get_plot_schritt(hauptfenster):
+    sample = hauptfenster.state.get("sample_rate", 2000)
 
+    if sample >= 10000:
+        return 200
+    elif sample >= 5000:
+        return 100
+    elif sample >= 2000:
+        return 50
+    else:
+        return 1
 
 def signal_live_plot(hauptfenster):
 
@@ -328,9 +338,10 @@ def signal_live_plot(hauptfenster):
     ax.grid(True, linestyle=":", color="#d0d0d0", alpha=0.7)
 
     #anlegen von Linien
-    (line_x,) = ax.plot([], [], linewidth=1.2, label="Spannung_x")
-    (line_y,) = ax.plot([], [], linewidth=1.2, label="Spannung_y")
-    ax.legend(loc="best")
+    (line_x,) = ax.plot([], [], linewidth=1.2, label=r"$u_x$(t)")
+    (line_y,) = ax.plot([], [], linewidth=1.2, label=r"$u_y$(t)")
+    fig.subplots_adjust(right=0.92)
+    ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5))
 
     reset_button = tk.Button(
         frame_signal,
@@ -345,7 +356,7 @@ def signal_live_plot(hauptfenster):
     canvas.draw()
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
-    # Beim Ändern der Framegröße neu zeichnen
+    #Beim Ändern der Framegröße neu zeichnen
     frame_signal.bind("<Configure>", lambda e: canvas.draw())
     
     #erstellen eines buffers und update_data befüllt die Liste
@@ -355,14 +366,11 @@ def signal_live_plot(hauptfenster):
         "canvas": canvas,
         "line_x": line_x,
         "line_y": line_y,
-        "ts": [],            # Zeit
-        "ux": [],            # Spannung_x
-        "uy": []             # Spannung_y
+        "ts": [],            #Zeit
+        "ux": [],            #Spannung_x
+        "uy": []             #Spannung_y
     }
 
-    
-
-   
 
     def on_move_signal(event):
         if event.inaxes is not ax:
@@ -610,7 +618,9 @@ def permeabilitaet_live_plot(hauptfenster):
     hauptfenster.after(100, update_data, hauptfenster)
 
     return frame_signal    
-    
+
+
+ 
 def reset_plot_ansicht(live):
 
     """
@@ -711,7 +721,7 @@ def update_data(hauptfenster):
                 b_scale = hauptfenster.state["scale_B"]
 
                 if h_scale is None or b_scale is None:
-                    continue  #noch nicht gesetzt → überspringen
+                    continue  #noch nicht gesetzt überspringen
                 
                 H = x * h_scale
                 B = y * b_scale
@@ -728,22 +738,27 @@ def update_data(hauptfenster):
         pass
 
     if drained:
+
+        schritt = get_plot_schritt(hauptfenster)
+
         #optional Sichtfenster begrenzen
         max_pts = 5000
 
+        #Signalplot
         if len(ts) > max_pts:
             ts[:] = ts[-max_pts:]
             ux[:] = ux[-max_pts:]
             uy[:] = uy[-max_pts:]
 
-        live["line_x"].set_data(ts, ux)
-        live["line_y"].set_data(ts, uy)
+        live["line_x"].set_data(ts[::schritt], ux[::schritt])
+        live["line_y"].set_data(ts[::schritt], uy[::schritt])
         live["ax"].relim(); live["ax"].autoscale_view()
         live["canvas"].draw_idle()
 
         #Hystereseplot
         if live_hyst is not None:
-            live_hyst["line_hb"].set_data(live_hyst["H"], live_hyst["B"])
+            live_hyst["line_hb"].set_data(live_hyst["H"][::schritt],
+                                          live_hyst["B"][::schritt])
             live_hyst["ax"].relim(); live_hyst["ax"].autoscale_view()
             live_hyst["canvas"].draw_idle()
 
@@ -760,7 +775,7 @@ def update_data(hauptfenster):
                 mu_r = dB / dH / mu0
                 mu_r[~np.isfinite(mu_r)] = np.nan  # NaN/Inf raus
 
-            live_perm["line_mu"].set_data(H_arr, mu_r)
+            live_perm["line_mu"].set_data(H_arr[::schritt],mu_r[::schritt])
             live_perm["ax"].relim()
             live_perm["ax"].autoscale_view()
             live_perm["canvas"].draw_idle()
@@ -1213,7 +1228,6 @@ def datei_laden(hauptfenster,pfad):
     """
 
     #Datei laden
-
     ext = os.path.splitext(pfad)[1].lower()
 
     if ext in [".cfg",".dat"]:
@@ -1260,63 +1274,55 @@ def datei_laden(hauptfenster,pfad):
     return h,b
 
 
-def ploten_kurven(value,hauptfenster,pfad):
+def ploten_kurven(value,hauptfenster,pfade):
 
     """
     Darstellung der geladenen Dateien 
     """
 
+    plt.figure()
 
-    H,B = datei_laden(hauptfenster,pfad)
+    for pfad in pfade:
+        
+        H,B = datei_laden(hauptfenster,pfad)
+        label = os.path.splitext(os.path.basename(pfad))[0]
 
-    #Mittels Unterscheidung 
+
+        
+    #Mittels Unterscheidung auswählen ob Permeabilität oder Hysterese 
+
+        if value == 0:
+            plt.plot(H, B, label=label)
+
+        elif value == 1:
+            mu0 = 4 * np.pi * 1e-7
+            dH = np.gradient(H)
+            dB = np.gradient(B)
+
+            with np.errstate(divide="ignore", invalid="ignore"):
+                mu_r = dB / dH / mu0
+                mu_r[~np.isfinite(mu_r)] = np.nan
+
+            plt.plot(H, mu_r, label=label)
+
+    plt.xlabel("H [A/m]")
 
     if value == 0:
 
-        plt.figure()
-        plt.plot(H, B, label="Hysterese")
-        plt.xlabel("H [A/m]")
         plt.ylabel("B [T]")
-        plt.grid(True)
-        plt.legend()
-        plt.show()
-        
-    if value == 1:
+        plt.title("Hysteresekurven")
 
-        plt.figure()
-        plt.plot(H, B, color="red", label="Entmagnetisierung")
-        plt.xlabel("H [A/m]")
-        plt.ylabel("B [T]")
-        plt.grid(True)
-        plt.legend()
-        plt.show()
+    else:
 
-    if value == 2:
+        plt.ylabel(r"$\mu_{r,\mathrm{diff}}$ [-]")
+        plt.title("Differentielle Permeabilität")
 
-        plt.figure()
-        plt.plot(H, B, color="green", label="Neukurve")
-        plt.xlabel("H [A/m]")
-        plt.ylabel("B [T]")
-        plt.grid(True)
-        plt.legend()
-        plt.show()
 
-    if value == 3:
+    plt.subplots_adjust(right=0.75)
+    plt.grid(True)
+    plt.legend(loc="center left",bbox_to_anchor=(1.02, 0.5))
+    plt.show()
 
-        mu0 = 4 * np.pi * 1e-7
-        dH = np.gradient(H)
-        dB = np.gradient(B)
-        mu_r = dB / dH / mu0
-
-        plt.figure()
-        plt.plot(H, mu_r, label="µ(H)")
-        plt.xlabel("H [A/m]")
-        plt.ylabel("µr [-]")
-        plt.grid(True)
-        plt.legend()
-        plt.show()
-
-    return 
 
 
 
@@ -1362,6 +1368,7 @@ def daten_laden(hauptfenster):
                                                 font=("Arial",10,"bold"))
     hysterese_frequenzen_radio.pack(anchor="w", padx=20, pady=5)
 
+    """
     hysterese_neukurve_radio = tk.Radiobutton(radio_button_fenster,
                                                 text="Hysterese Entmagnetisierung",
                                                 variable = auswahl_radio, value= 1,
@@ -1377,10 +1384,11 @@ def daten_laden(hauptfenster):
                                                 selectcolor="#e4e7ec",
                                                 font=("Arial",10,"bold"))
     hysterese_entmagnet_radio .pack(anchor="w", padx=20, pady=5)
-
+    """
+    
     hysterese_permeabilitaet_radio = tk.Radiobutton(radio_button_fenster,
                                                 text="Permeabilität",
-                                                variable = auswahl_radio, value= 3,
+                                                variable = auswahl_radio, value= 1,
                                                 background="#e4e7ec",
                                                 selectcolor="#e4e7ec",
                                                 font=("Arial",10,"bold"))
@@ -1388,7 +1396,7 @@ def daten_laden(hauptfenster):
 
 
     #Datei pfad beliebig auswählen
-    pfad = filedialog.askopenfilename(
+    pfade = filedialog.askopenfilenames(
         parent=hauptfenster,
         title="Messdatei auswählen",
         filetypes=(
@@ -1396,14 +1404,14 @@ def daten_laden(hauptfenster):
             ("Alle Dateien", "*.*"),))
 
 
-    if not pfad:
+    if not pfade:
         messagebox.showerror("Keinen gültigen Dateipfad angegeben")
         return 
 
     def on_weiter():
         value = auswahl_radio.get()
         radio_button_fenster.destroy()
-        ploten_kurven(value,hauptfenster,pfad)
+        ploten_kurven(value,hauptfenster,pfade)
 
 
 
@@ -1491,7 +1499,7 @@ def eingabe_daten(fenster,hauptfenster):
     lbl_sample = tk.Label(frame_sample, text="Sample rate [S/s]:", bg="#f5f7fa")
     lbl_sample.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
-    sample_box = ttk.Combobox(frame_sample,values=[100, 200, 500, 1000, 2000, 5000],
+    sample_box = ttk.Combobox(frame_sample,values=[100, 200, 500, 1000, 2000, 5000, 10000],
                                 state="readonly",width=10)
     sample_box.set(2000)  #Standardwert
     sample_box.grid(row=0, column=1, padx=5, pady=5)
@@ -1502,6 +1510,7 @@ def eingabe_daten(fenster,hauptfenster):
         try:
             wert = int(sample_box.get())
             sample_rate(wert)
+            hauptfenster.state["sample_rate"] = wert
             hauptfenster.state["sample_var"].set(f"{wert} S/s")
             messagebox.showinfo("Neue Sample Rate: [S/s]",f"{wert}")
         except ValueError:
@@ -1513,7 +1522,6 @@ def eingabe_daten(fenster,hauptfenster):
     #Eingabefeld Offset
     offset_eingabe(frame_offset)
     
-
     
 
 def fenster_einstellungen(hauptfenster):
@@ -1708,7 +1716,7 @@ class Hauptfenster(tk.Tk):
 
         self.title("Messprogramm Laborversuch Magnetika Hysterese")
 
-        # Bildschirmgröße
+        #Bildschirmgröße
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
 
@@ -1720,13 +1728,14 @@ class Hauptfenster(tk.Tk):
         self.option_add("*Label.foreground", "#222222")
         self.option_add("*Button.font", "Arial 10")
 
-        # Zustands-Variablen der GUI
+        #Zustands-Variablen der GUI
         self.state = {
             "scale_H": None,
             "scale_B": None,
             "messung_laeuft": False,
             "cursor_H_var": None,
-            "cursor_B_var": None
+            "cursor_B_var": None,
+            "sample_rate": 2000
             }
         
 
