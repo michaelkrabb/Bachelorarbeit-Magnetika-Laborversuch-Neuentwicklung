@@ -1,42 +1,38 @@
-#Hauptprogramm
-
 """
-Im Hauptprogramm werden die Funktion aus dem Unterordner bib
-importiert und nur aufgerufen.
-Das ganze dient der Übersicht und um alles miteinander verknüpfen zu können.
+Hauptprogramm des Messprogramms für die Lehrveranstaltung
+366.110 Materialien der Elektrotechnik.
+
+Das Programm wurde im Rahmen dieser Bachelorarbeit entwickelt und besteht
+aus der Datei main.py sowie den Modulen gui.py und
+functions_ad3.py.
+
+Die Datei main.py startet die grafische Benutzeroberfläche (GUI).
+Über diese können Studierende Messungen durchführen, Messdaten als
+CSV-Dateien speichern, Skalierungsfaktoren eingeben sowie wichtige
+Messinformationen und eine Live-Darstellung der Messdaten anzeigen.
 """
 
-#Imports
-
+#Import der GUI Datei aus dem Ordner bib
 from bib.gui import GUI
 
-
-"""
-Hauptprogramm
-startet das Programm, alle Funktion sind ausgelagert 
-In eien functions_ac3.py und eine gui.py datei
-
-GUI: starte das GUI und führt es aus
-"""
 
 def main():
 
     """
-    Ruft das Hauptfenster auf und startet mittels der Funktion 
-    GUI das User Interface. Außerdem erhält man die Skalierungsfaktoren,
-    mit den die Messwerte für die Spannung sklaiert werden um die Hysterese 
-    darstellen zu können.
+        Startet die grafische Benutzeroberfläche und gibt die eingestellten
+        Skalierungsfaktoren zurück.
 
-    Args:
-        None
-
-    Returns:
-        gibt die Skalierungsfaktoren für h und b zurück
-    
+        Returns:
+            tuple[float, float]:
+            Skalierungsfaktoren für H und B.
     """
 
+    #für den start des GUI 
     hauptfenster_var = GUI()
     hauptfenster_var.mainloop()
+
+    #man erhält die Werte für h und b 
+    #über den state vom Hauptfenster gepeichert
     h = hauptfenster_var.state.get("scale_H")
     b = hauptfenster_var.state.get("scale_B")
     
@@ -44,6 +40,8 @@ def main():
         
 
 if __name__ == "__main__":
+
+    #Programm start
     h,b = main()
     print("Skalierungsfaktoren: ")
     print(f"H = {h}", f"B = {b}")

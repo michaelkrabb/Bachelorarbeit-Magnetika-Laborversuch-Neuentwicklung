@@ -37,16 +37,37 @@ from tkinter import ttk, messagebox, filedialog
 import tk_tools
 
 #gemeinsame Objekte aus functions_ac3.py holen:
-from .functions_ac3 import start_messung, stop_messung, data_queue, run_event,update_offset
-from .functions_ac3 import set_fortsetzen_modus, fortsetzen_modus, sample_rate, get_offset
-from .functions_ac3 import set_csv_ordner, index_csv, get_messung_index, reset_messung_index
+from .functions_ad3 import start_messung, stop_messung, data_queue, run_event,update_offset
+from .functions_ad3 import set_fortsetzen_modus, fortsetzen_modus, sample_rate, get_offset
+from .functions_ad3 import set_csv_ordner, index_csv, get_messung_index, reset_messung_index
 
 def create_button(fenster, text, command=None, primary=False):
 
     """
-        Folgende Funktion erzeugt Buttons welche dann einfahc verwenden werden 
-        können, um zu gewährleisten, dass man den gleichen button hat oder
-        schnell eine Änderung machen kann, vor allem für dei Optik sehr einfach
+    Folgende Funktion erzeugt Buttons welche dann einfahc verwenden werden 
+    können, um zu gewährleisten, dass man den gleichen button hat oder
+    schnell eine Änderung machen kann, vor allem für die Optik sehr einfach. 
+    Somit hat man immer den gleichen Button für die wichtigsten Interaktionsfelder.
+    Zu erwähnen ist dennoch ist gibt vereinzelnt ausnahmen, welche eine anderen
+    Button generieren.
+
+    Args:
+        fenster(): 
+            steht für das fenster in dem der Button angezeigt wird
+
+        text (str):
+            um den Button die Beschriftung zu geben
+
+        command ():
+            um bei Button klick eine funktion aufrufen zu können (triggert aktion)
+        primary ():
+            
+    Return
+        tk.Button ():
+            Generiert den Button mit den verschiedenen Konfigurationen
+
+
+
     """
 
 
