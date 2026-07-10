@@ -44,47 +44,54 @@ from .functions_ad3 import set_csv_ordner, index_csv, get_messung_index, reset_m
 def create_button(fenster, text, command=None, primary=False):
 
     """
-    Folgende Funktion erzeugt Buttons welche dann einfahc verwenden werden 
-    können, um zu gewährleisten, dass man den gleichen button hat oder
+    Folgende Funktion erzeugt Buttons welche dann einfach verwenden werden 
+    können, um zu gewährleisten, dass man den gleichen Button hat oder
     schnell eine Änderung machen kann, vor allem für die Optik sehr einfach. 
     Somit hat man immer den gleichen Button für die wichtigsten Interaktionsfelder.
     Zu erwähnen ist dennoch ist gibt vereinzelnt ausnahmen, welche eine anderen
     Button generieren.
 
     Args:
-        fenster(): 
+        fenster (tk.Widget): 
             steht für das fenster in dem der Button angezeigt wird
 
         text (str):
             um den Button die Beschriftung zu geben
 
-        command ():
+        command (callable, optional):
             um bei Button klick eine funktion aufrufen zu können (triggert aktion)
-        primary ():
+
+        primary (bool):
+            Legt das Erscheinungsbild des Buttons fest
+            True erzeugt einen hervorgehobenen (blauen) Button
+            False einen grauen Standardbutton
             
     Return
-        tk.Button ():
+        tk.Button:
             Generiert den Button mit den verschiedenen Konfigurationen
 
     """
 
 
-
+    #zwei Button typen für die verschiedenen Anwendungen
     if primary:
+
+        #return des generierten Buttons
         return tk.Button(
-            fenster,
-            text=text,
-            borderwidth= 1.5,
-            command=command,
-            bg="#1e88e5",
-            fg="white",
-            activebackground="#1565c0",
-            activeforeground="white",
-            relief="solid",
-            padx=10,
-            pady=4,
+            fenster,                        #GUI Fenster auf das sich der Button bezieht                                               
+            text=text,                      #Beschriftung des Buttons             
+            borderwidth= 1.5,               #Breite des Rahmens
+            command=command,                #Funktionsaufruf
+            bg="#1e88e5",                 #Hintergrundfarbe
+            fg="white",                     #Schriftfarbe                
+            activebackground="#1565c0",   #Hintergrundfarbe beim Klicken          
+            activeforeground="white",       #Schriftfarbe beim Klicken
+            relief="solid",                 #Art des Buttonrahmens
+            padx=10,                        #Abstand x Koordinate
+            pady=4,                         #Abstand y Koordinate            
         )
     else:
+        #vergleiche mit zuvor
         return tk.Button(
             fenster,
             text=text,
@@ -104,15 +111,30 @@ def create_button(fenster, text, command=None, primary=False):
 def save_scale(entry_x, entry_y,hauptfenster):
 
     """
-    Die Funktion skalierung speichert die beiden Skalierungsfaktoren ab,
-    welche die Studierenden berechnen und eingeben müssen.
+    Es werden die Skalierungsfaktoren aus dem erstellten entry gespeichert.
+    Das bedeutet die Eingabe der Skalierungsfaktoren wird hier gespeichert.
+    Als Kommersymbole sind Punkt oder Beistrich erlaubt. Bei falscher Eingabe
+    erscheint ein Error Feld im GUI. Der State der Skalierungsfakltoren wird
+    mit dem Hauptfenster gepsiechert. Bei erfolgreicher Speicherung erfolgt 
+    ebenfalls eine Message am GUI.
 
-    Parameter:
-        zwei neue Variablen speichern den Wert über die get() Funktion
+    Args:
+        entry_x (tk.Entry):
+            Eingabefeld für Skalierungsfaktor magnetische Feldstärke
+        
+        entry_y (tk.Entry):
+            Eingabefeld für Skalierungsfaktor magnetische Flussdichte
+        
+        hauptfenster (tk.Widget):
+            Hauptfenster des GUI
+    
+    Returns:
+        Fehlermeldung
 
-    Rückgabewert:
-        der Saklierungsfaktor wird als Array zurückgegeben
+    
     """
+
+
 
     try:
 
@@ -132,17 +154,37 @@ def save_scale(entry_x, entry_y,hauptfenster):
 def eingabe_skalierung(frame_scale,hauptfenster):
 
     """
-        Erstellt die frames im Hauptfenster 
-        erzeugt die Labels und Entrys also Eingabefelder
+    Die Funktion erzeugt die Frames, Labels, Eingabefelder sowie den Button
+    Skalierungsfaktoren speichern. Der Frame wird erzeugt um die zwei Eingabefelder
+    richtig anornden zu können. Die Labels dienen der Beschriftung der Eingabfelder.
+    Es werden zwei Frames erzeugt um eine Reihung untereinander zu ermöglichen.
+    Der Button wird mittels der vordefinierten Funktion erzeugt und dient dazu
+    bei Klick die eingegeben Skalierungsfaktoren zu speichern.
+
+    Args:
+        frame_scale (tk.Frame):
+            Dient dazu die erzeugten Frames die richtige Position am GUI zuzuweisen
+        
+        hauptfenster (tk.Widget):
+            Zuweisung auf dem Hauptfenster
+
+    Returns:
+        entry_x (tk.Entry):
+            Erzeugt das Eingabefeld für Skalierungsfaktor H
+
+        entry_y (tk.Entry):
+            Erzeugt das Eingabefeld für Skalierungsfaktor B     
+
     """
     
-    frame_x = tk.Frame(frame_scale, bg="#f5f7fa")
-    frame_x.grid(row=0, column=0,padx=4,pady=4,sticky="ew")
+    #Frames erzeugen mit Zeile, Spalte und den Abständen
+    frame_x = tk.Frame(frame_scale, bg="#f5f7fa")           #sticky welche Seite
+    frame_x.grid(row=0, column=0,padx=4,pady=4,sticky="ew") 
 
     frame_y = tk.Frame(frame_scale, bg="#f5f7fa")
     frame_y.grid(row=1, column=0,padx=4,pady=4,sticky="ew")
     
-    #Jetzt das Label so anpassen, das es mit grid und nciht mit pad funktioniert
+    #Jetzt das Label so anpassen, das es mit grid und nicht mit pad funktioniert
     label_x = tk.Label(frame_x,text="1V... = ").grid(row=0,column=0,
                                                      sticky="w",
                                                      padx=5,pady=5)
@@ -160,12 +202,12 @@ def eingabe_skalierung(frame_scale,hauptfenster):
                                                      sticky="w",
                                                      padx=5,pady=5)
     
-    #Eingabefeld
+    #Eingabefeld für Skalierungsgfaktor H
     entry_x = tk.Entry(frame_x, width=12, bd=2, relief="solid")
     entry_x.grid(row=0,column=1,padx=5,pady=5)
 
 
-    #Eingabefeld
+    #Eingabefeld für Skalierungsfaktor B
     entry_y = tk.Entry(frame_y, width=12, bd=2, relief="solid")
     entry_y.grid(row=1,column=1,padx=5,pady=5)
     
@@ -184,8 +226,19 @@ def eingabe_skalierung(frame_scale,hauptfenster):
 def clear_live_plots(hauptfenster):
 
     """
-    Die live Darstellungen sollen bevor man Messung neu startet nichtz mehr 
-    angezeigt werden. Dadurch wird immer nur die aktuelle Messung dargestellt. 
+    Die Funktion clear den live dargestellten Plot. Das bedeutet die aktuelle
+    Anzeige wird entfernt und mit der neutralen Ansicht wieder belegt. Einfach gesagt
+    die dargestellte Messung wird gelöscht und die neue kann angezeigt werden.
+    Das Funktioniert parallel für alle drei mögliche live Plots. Nämlich für den
+    Signal plot sowie für dei Hysterese oder die Permeabilität. 
+    Achtung die Daten queue muss auch entleert werden, weil ansonsten bei einer 
+    neuen Messung alte bzw. flasche Daten geplotet werden.
+
+    Args:
+        hauptfenster (tk.Widget):
+            Zuweisung auf dem Hauptfenster
+    
+
 
     """
 
@@ -194,14 +247,17 @@ def clear_live_plots(hauptfenster):
     frame_permea = hauptfenster.frames["permeabilität"]
     
     #zurücksetzen Singale
-    if hasattr(frame_signal, "live"):
+    if hasattr(frame_signal, "live"):       #wenn der Frame ein ein Attribut hat
+
+        #clear des live plots also des frames
         live = frame_signal.live
         live["ts"].clear()
         live["ux"].clear()
         live["uy"].clear()
         live["line_x"].set_data([], [])
         live["line_y"].set_data([], [])
-        # Achsen zurücksetzen
+
+        #Achsen zurücksetzen
         ax = live["ax"]  
         live["ax"].relim()
         live["ax"].autoscale_view()
@@ -230,8 +286,7 @@ def clear_live_plots(hauptfenster):
         ax.autoscale_view()
         live_p["canvas"].draw_idle()
 
-    #Dadurch wird die Daten Q auch noch entleert
-
+    #Dadurch wird die Daten Q auch noch entleert 
     with data_queue.mutex:
         data_queue.queue.clear()
 
@@ -239,7 +294,17 @@ def clear_live_plots(hauptfenster):
 def zoom_funktion(frame):
 
     """
-        Zoom Funktion mittels Mausrad. Funktioniert nur im Messframe
+    Die Zoom Funktion dient dazu in den einzelen live Plots hinein- bzw.
+    hinauszoomen zu können. Das ist möglich wenn man sich im Frame befindet und
+    am Mausrad herumdreht. Mittels gehaltenem Rechtsklick im Frame kann man das 
+    Bild verschieben. Das sind die zwei wesentlichen Funktionen.
+
+    Args:
+        frame (tk.Frame):
+
+    Returns:
+        None
+
     """
 
     ax = frame["ax"]
@@ -475,7 +540,7 @@ def hysterese_live_plot(hauptfenster):
     canvas.draw()
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
-    # Beim Ändern der Framegröße neu zeichnen
+    #Beim Ändern der Framegröße neu zeichnen
     frame_signal.bind("<Configure>", lambda e: canvas.draw())
     
     #erstellen eines Puffers und update_data befüllt die Liste
