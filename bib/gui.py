@@ -66,8 +66,6 @@ def create_button(fenster, text, command=None, primary=False):
         tk.Button ():
             Generiert den Button mit den verschiedenen Konfigurationen
 
-
-
     """
 
 
@@ -104,6 +102,7 @@ def create_button(fenster, text, command=None, primary=False):
 
 #damit die Skalierungswerte nicht verloren gehen werte abspeichern
 def save_scale(entry_x, entry_y,hauptfenster):
+
     """
     Die Funktion skalierung speichert die beiden Skalierungsfaktoren ab,
     welche die Studierenden berechnen und eingeben müssen.
@@ -315,6 +314,7 @@ def zoom_funktion(frame):
 
    
 def get_plot_schritt(hauptfenster):
+    
     sample = hauptfenster.state.get("sample_rate", 2000)
 
     if sample >= 10000:

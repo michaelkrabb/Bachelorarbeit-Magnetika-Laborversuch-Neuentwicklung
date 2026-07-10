@@ -476,6 +476,7 @@ def stop_messung():
         Returns:
             int:
                 Gibt 1 zurück, wenn die Messung gestoppt wurde
+                
     """
     run_event.clear()
     return 1
