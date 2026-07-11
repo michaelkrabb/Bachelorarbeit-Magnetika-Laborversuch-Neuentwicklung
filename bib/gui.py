@@ -232,7 +232,7 @@ def clear_live_plots(hauptfenster):
     Das Funktioniert parallel für alle drei mögliche live Plots. Nämlich für den
     Signal plot sowie für dei Hysterese oder die Permeabilität. 
     Achtung die Daten queue muss auch entleert werden, weil ansonsten bei einer 
-    neuen Messung alte bzw. flasche Daten geplotet werden.
+    neuen Messung alte bzw. falsche Daten geplotet werden.
 
     Args:
         hauptfenster (tk.Widget):
@@ -297,7 +297,9 @@ def zoom_funktion(frame):
     Die Zoom Funktion dient dazu in den einzelen live Plots hinein- bzw.
     hinauszoomen zu können. Das ist möglich wenn man sich im Frame befindet und
     am Mausrad herumdreht. Mittels gehaltenem Rechtsklick im Frame kann man das 
-    Bild verschieben. Das sind die zwei wesentlichen Funktionen.
+    Bild verschieben. Das sind die zwei wesentlichen Funktionen. Es gibt in 
+    dieser Funktion die aufgerufen werden, wenn das Event ausgelöst wird. Das
+    führt dazu, das die scroll oder Verschiebungsfunktion eingeschaltet wird. 
 
     Args:
         frame (tk.Frame):
@@ -309,14 +311,17 @@ def zoom_funktion(frame):
 
     ax = frame["ax"]
     canvas = frame["canvas"]
-    zoom_faktor = 1.2
+    #hier könnten man einstellen wie schnell man zoomen möchte
+    zoom_faktor = 1.2                   
     status_maus = {"druecken": None}
 
+    #scroll funktion mittels Mausrad
     def on_scroll(event):
 
         if event.inaxes is not ax:
             return
 
+        #skaliert den zoomfaktor mittels Mausrad
         if event.button == "up":
             scale = 1/zoom_faktor
         elif event.button == "down":
@@ -324,31 +329,40 @@ def zoom_funktion(frame):
         else:
             return
 
+        #erhalte die Werte bzw. das Tupel
         x_min, x_max = ax.get_xlim()
         y_min, y_max = ax.get_ylim()
 
         xdata = event.xdata if event.xdata is not None else (x_min + x_max) / 2
         ydata = event.ydata if event.ydata is not None else (y_min + y_max) / 2
 
+        #die neue Breite und Höhe mit dem Saklierungsfaktor für Zoom anpassen
         new_width = (x_max - x_min) * scale
         new_height = (y_max - y_min) * scale
 
         ax.set_xlim([xdata - new_width / 2, xdata + new_width / 2])
         ax.set_ylim([ydata - new_height / 2, ydata + new_height / 2])
 
+        #anpassung des live plot
         canvas.draw_idle()
 
+    #sorgt dafür bei gedrücktet rechter Maustaste das Bild zu verschieben
     def on_press(event):
+
+        #Fallunterscheidung
         if event.inaxes is not ax:
             return
         if event.button != 3:
             return
         if event.xdata is None or event.ydata is None:
             return
+        
+
         x_min, x_max = ax.get_xlim()
         y_min, y_max = ax.get_ylim()
         status_maus["druecken"] = (event.xdata, event.ydata, (x_min, x_max), (y_min, y_max))    
 
+    #funktionen damit das verschieben wieder beendet ist also bei Maustaste loslassen
     def on_release(event):
         if event.button == 3:
             status_maus["druecken"] = None
@@ -366,12 +380,14 @@ def zoom_funktion(frame):
         dx = event.xdata - x0
         dy = event.ydata - y0
 
+        #achsen anpassen dynamisch
         ax.set_xlim(x_min0 - dx, x_max0 - dx)
         ax.set_ylim(y_min0 - dy, y_max0 - dy)
 
+        #live plot 
         canvas.draw_idle()
         
-
+    #anpassungen des live plots also zoomen scrollen
     canvas.mpl_connect("scroll_event", on_scroll)
     canvas.mpl_connect("button_press_event", on_press)
     canvas.mpl_connect("button_release_event", on_release)
@@ -380,8 +396,29 @@ def zoom_funktion(frame):
    
 def get_plot_schritt(hauptfenster):
     
+    """
+    Bei sehr hohen Sample Rates kann es dazu kommen beim Bewegen des GUI oder
+    allgemein aufgrund der großen Datenmenge das es zu Lags kommt. Im schlimmsten 
+    Fall zu crashes des GUI. Damit nicht jeder Messeintrag bei großen Sample
+    Rates dargestellt wird verwendet man diese Funktion, welche die Anzahl
+    an dargestellten Werten im Live Plot verrignert. Diese Veränderung hat keinen
+    Einfluss auf die Datenmenge in der CSV-Datei dort werden immer noch alle
+    Einträge abgespeichert.
+
+    Args:
+        hauptfenster (tk.Widget):
+            Wird verwendet um die derzeit gepeichert Sample rate aufzurufen
+    
+    Returns:
+        (int):
+            je nach Fallunterscheidung 200, 100, 50 oder 1
+            
+    """
+
+    #Um die Sample rate zu erhalten
     sample = hauptfenster.state.get("sample_rate", 2000)
 
+    #Fallunterscheidung für die verschiedenen Sample Rates
     if sample >= 10000:
         return 200
     elif sample >= 5000:
@@ -394,21 +431,27 @@ def get_plot_schritt(hauptfenster):
 def signal_live_plot(hauptfenster):
 
     """
-    live Plot des Signales über die Zeit.
-    Das bedeutet die Spannung an der Stelle x über den Shunt Widerstand und
-    die Spannung an der Stelle y über den Integrator wird über die Zeit 
-    dargestellt. Das soll live sein um den Verlauf dazu betrachten zu können.
+    Die Funktion erzeugt den live Plot für dei zwei Signale. Es wird an zwei 
+    Stellen die Spannung gemessen. Die gemessenen Spannung wird in einem Frame
+    live über die Zeit dargestellt. Das bedeutet man kann die Signale über den Widerstand
+    bzw. das Ausgangssignal des Integrators verfolgen. Aufgrund der Zoom Funktion
+    gibt es auch einen Reset Button. Dieser sorgt dafür die ursprüngliche Ansicht 
+    wieder herzustellen. Somit ist es möglich zu zoomen und verschieben und kann
+    per Button klick die eigentliche Ansicht wieder herstellen.
 
-    Die Funktion ist als thread erstellt und sollte daher parallel zur Messung funktionieren.
-    """
-    """
-    Erstellt ein Diagramm welches parallel zur Messung die beiden Spannungswerte
-    plottet. 
+    Args:
+        hauptfenster (tk.Widget):
+            Hauptfenster um frame zuzuweisen oder Daten zu erhalten usw.
+    
+    Returns:
+        frame_signal (tk.Frame):
+            Gibt den erzeugten Frame zurück. Dort findet die Darstellung
+            der Signale statt.    
     """
     
     frame_signal = hauptfenster.frames["signal"]
 
-    # Frame zuerst updaten, damit Breite/Höhe korrekt sind
+    #Frame zuerst updaten, damit Breite/Höhe korrekt sind
     #frame_signal.update_idletasks()
 
     #erstellen des Plots mit Matplotlib
@@ -429,6 +472,7 @@ def signal_live_plot(hauptfenster):
     fig.subplots_adjust(right=0.92)
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5))
 
+    #Reset Button um die Ansischt wieder auf die Ausgangslage zu blicken
     reset_button = tk.Button(
         frame_signal,
         text="↺ Reset",
@@ -459,24 +503,44 @@ def signal_live_plot(hauptfenster):
 
 
     def on_move_signal(event):
+
+        """
+        Die Funktion ist dafür die Position des Mauszeigers einen WErt im Plot
+        zuzordnen. Das bedeutet man erhält, in diesem Fall den Wert im GUI angezeigt
+        für die Spannungen U_x und U_y.
+
+        Args:
+            event:
+                Wenn das Event also der live plot vorhanden ist
+        
+        Returns:
+            None
+        """
+
+        #überprüft wo der Zeiger ist
         if event.inaxes is not ax:
             return
 
+        #dargestellten Werte im Plot
         ts = frame_signal.live["ts"]
         ux = frame_signal.live["ux"]
         uy = frame_signal.live["uy"]
 
+        #Wenn keine WErte vorhanden sind dann wird auch None zurückgeben
         if not ts or not ux or not uy:
             return
 
+        #Cursour Variable
         t_cursor = event.xdata
 
         t_arr = np.asarray(ts)
         idx = int(np.argmin(np.abs(t_arr - t_cursor)))
 
+        #man erhält die aktuellen Werte bezogen auf den Mauszeiger
         cursor_ux_var = hauptfenster.state.get("cursor_ux_var")
         cursor_uy_var = hauptfenster.state.get("cursor_uy_var")
 
+        #Wenn es Werte gibt werden die gesetzt und angezeigt
         if cursor_ux_var is not None:
             cursor_ux_var.set(f"Ux = {ux[idx]:.3f} V")
 
@@ -497,15 +561,25 @@ def signal_live_plot(hauptfenster):
 def hysterese_live_plot(hauptfenster):
 
     """
-        Erstellt ein Digramm welches die Hysterese darstellt. Verwendet die 
-        Skalierungsfaktoren.
+    Dadurch erfolgt der Hysterese live Plot. An sich die exakt gleiche Funktion
+    wie signal_live_plot. Der Unterschied ist hier geht es um die magnetische
+    Feldstärke H und magnetische Flussdichte B. 
+
+    Args:
+        hauptfenster (tk.Widget):
+            Hauptfenster um frame zuzuweisen oder Daten zu erhalten usw.
+    
+    Returns:
+        frame_hyst (tk.Frame):
+            Gibt den erzeugten Frame zurück. Dort findet die Darstellung
+            der Hysterese statt.  
 
     """
      
-    frame_signal = hauptfenster.frames["hysterese"]
+    frame_hyst = hauptfenster.frames["hysterese"]
 
     # Frame zuerst updaten, damit Breite/Höhe korrekt sind
-    frame_signal.update_idletasks()
+    frame_hyst.update_idletasks()
 
     #erstellen des Plots mit Matplotlib
     fig = Figure(dpi=100)  # Keine feste figsize, nur DPI
@@ -527,30 +601,31 @@ def hysterese_live_plot(hauptfenster):
     (line_hb,) = ax.plot([], [], linewidth=1.2, label="B(H)")
     ax.legend(loc="best")
 
+    #Reset Button 
     reset_button = tk.Button(
-        frame_signal,
+        frame_hyst,
         text="↺ Reset",
-        command=lambda: reset_plot_ansicht(frame_signal.live),
+        command=lambda: reset_plot_ansicht(frame_hyst.live),
         font=("Arial", 8)
     )
     reset_button.pack(anchor="ne")
 
     #Cancas in Tk platzieren
-    canvas = FigureCanvasTkAgg(fig, master=frame_signal)
+    canvas = FigureCanvasTkAgg(fig, master=frame_hyst)
     canvas.draw()
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
     #Beim Ändern der Framegröße neu zeichnen
-    frame_signal.bind("<Configure>", lambda e: canvas.draw())
+    frame_hyst.bind("<Configure>", lambda e: canvas.draw())
     
     #erstellen eines Puffers und update_data befüllt die Liste
-    frame_signal.live = {
+    frame_hyst.live = {
         #"frame": frame,      
         "ax": ax,
         "canvas": canvas,
         "line_hb": line_hb,
-        "H": [],            # Spannung_x
-        "B": []             # Spannung_y
+        "H": [],            #magnetische Feldstärke H
+        "B": []             #magnetische Flussdichte B
     }
 
     
@@ -562,8 +637,8 @@ def hysterese_live_plot(hauptfenster):
         if event.inaxes is not ax:
             return
         
-        H_vals = frame_signal.live["H"]
-        B_vals = frame_signal.live["B"]
+        H_vals = frame_hyst.live["H"]
+        B_vals = frame_hyst.live["B"]
 
         if not H_vals or not B_vals:
             return
@@ -590,23 +665,36 @@ def hysterese_live_plot(hauptfenster):
     canvas.mpl_connect("motion_notify_event", on_move)
 
     #Zoom per Mausrad aktivieren
-    zoom_funktion(frame_signal.live)
+    zoom_funktion(frame_hyst.live)
 
     #update anstoßen
     hauptfenster.after(100, update_data, hauptfenster)
 
-    return frame_signal    
+    return frame_hyst    
 
 
 def permeabilitaet_live_plot(hauptfenster):
+
     """
-    Erstellt ein Digramm welches die differentielle Permeabiliät darstellt
+    Dadurch erfolgt der Permeabilitäts live Plot. An sich die exakt gleiche Funktion
+    wie signal_live_plot. Der Unterschied ist hier geht es um die differentielle
+    Permeabilität. 
+
+    Args:
+        hauptfenster (tk.Widget):
+            Hauptfenster um frame zuzuweisen oder Daten zu erhalten usw.
+    
+    Returns:
+        frame_perm (tk.Frame):
+            Gibt den erzeugten Frame zurück. Dort findet die Darstellung
+            der Permeabilität statt.  
+
     """
      
-    frame_signal = hauptfenster.frames["permeabilität"]
+    frame_perm = hauptfenster.frames["permeabilität"]
 
-    # Frame zuerst updaten, damit Breite/Höhe korrekt sind
-    frame_signal.update_idletasks()
+    #Frame zuerst updaten, damit Breite/Höhe korrekt sind
+    frame_perm.update_idletasks()
 
     #erstellen des Plots mit Matplotlib
     fig = Figure(dpi=100)  # Keine feste figsize, nur DPI
@@ -629,24 +717,24 @@ def permeabilitaet_live_plot(hauptfenster):
     ax.legend(loc="best")
 
     reset_button = tk.Button(
-        frame_signal,
+        frame_perm,
         text="↺ Reset",
-        command=lambda: reset_plot_ansicht(frame_signal.live),
+        command=lambda: reset_plot_ansicht(frame_perm.live),
         font=("Arial", 8)
     )
     reset_button.pack(anchor="ne")
 
 
     #Canvas in Tk platzieren
-    canvas = FigureCanvasTkAgg(fig, master=frame_signal)
+    canvas = FigureCanvasTkAgg(fig, master=frame_perm)
     canvas.draw()
     canvas.get_tk_widget().pack(fill="both", expand=True)
 
     # Beim Ändern der Framegröße neu zeichnen
-    frame_signal.bind("<Configure>", lambda e: canvas.draw())
+    frame_perm.bind("<Configure>", lambda e: canvas.draw())
     
     #erstellen eines Puffers und update_data befüllt die Liste
-    frame_signal.live = {
+    frame_perm.live = {
         #"frame": frame,      
         "ax": ax,
         "canvas": canvas,
@@ -661,8 +749,8 @@ def permeabilitaet_live_plot(hauptfenster):
         if event.inaxes is not ax:
             return
 
-        H_vals = frame_signal.live["H"]
-        B_vals = frame_signal.live["B"]
+        H_vals = frame_perm.live["H"]
+        B_vals = frame_perm.live["B"]
 
         if len(H_vals) < 3 or len(B_vals) < 3:
             return
@@ -698,35 +786,64 @@ def permeabilitaet_live_plot(hauptfenster):
     canvas.mpl_connect("motion_notify_event", on_move_mu)
 
     #Zoom per Mausrad aktivieren
-    zoom_funktion(frame_signal.live)
+    zoom_funktion(frame_perm.live)
 
     #update anstoßen
     hauptfenster.after(100, update_data, hauptfenster)
 
-    return frame_signal    
+    return frame_perm   
 
 
  
 def reset_plot_ansicht(live):
 
     """
-        Setzt die Ansicht der Plots zurück.
+    Es wird die Ansicht der live Plots zurückgesetzt. 
+
+    Args:
+        live ():
+
     """
+
+    #Achse zuordnen
     ax = live["ax"]
+
+    #live Plot
     canvas = live["canvas"]
 
+    #Achsen auf autoscale
     ax.set_autoscale_on(True)
     ax.relim()
     ax.autoscale_view()
 
+    #Darstellung der Achsen usw.
     canvas.draw_idle()
+
 
 def plot_frames(hauptfenster):
 
     """
-        Die folgende Funktion erzeugt Rahmen für die zwei Diagramme.
-        Das bedeutet die Container in dennen man die entrys usw. zuordnen kann
-        Dient zur Positionierung und um das Gui aufgeräumter darzustellen.
+    Hier werden die Kontainer sowie die frames der Live Plots erzeugt. 
+    Der Kontainer erzeugt eine Abteilung in Form von zwei Rahmen auf der rechten
+    Seite des GUI. Mittels einer Gewichtgung ist der Kontainer des Hysterese/
+    Permeabilitäts Kontainer größer als der Singal Kontainer. Der Grund dafür
+    ist, dass das Singal nicht so viel Platz benötigt und der Hauptaugenmerk
+    sollte auf der Hysterese liegen. Es werden drei Frames erzeugt und dem 
+    jeweiligen Kontainer zugeordnet.
+    
+    Args:
+        hauptfenster (tk.Widget):
+            Hauptfenster zurodnen des Containers auf dem hauptfenster des GUI
+    
+    Returns:
+        frame_signal (tk.LabelFrame):
+            Frame des Signals, ist dem container reihe 0 zugeordnet
+
+        frame_hysterese/frame_perme (tk.LabelFrame):
+            Frame der Hysterese oder Permeabilität, ist dem container reihe 1 
+            zugeordnet. Zwei Frames fpür die verschieden Beschriftung des live
+            Plots.
+        
 
     """
 
@@ -764,7 +881,7 @@ def plot_frames(hauptfenster):
     hauptfenster.frames = {"signal": frame_signal, "hysterese": frame_hysterese,
                            "permeabilität": frame_perme}
 
-    # Permeabilität am Anfang ausblenden:
+    #Permeabilität am Anfang ausblenden:
     frame_perme.grid_remove()
 
     return frame_signal, frame_hysterese, frame_perme
@@ -872,13 +989,20 @@ def update_data(hauptfenster):
 def mess_button(frame_messung,hauptfenster,value_radio_klick):
 
     """
-        Die Funktion mess_button erzeugt die Buttons
-        Messung starten und stoppen
+    Erzeugt den Messung starten Button. Dieser Button ist ein Toggle Button
+    und switch von Messung starten auf Messung beenden und danach auf Messung
+    neu starten. Der Button wird im frame Messung erzeugt.
 
-        DIe FUnktion gibt nichts zurück. Gleichbedeutent ist der klick einer der 
-        Buttons wiochtig für die Messung denn wirklich erst beim klicken wird die 
-        Messung gestartet oder gestopp. Außerdem wird die LED als anzeige hier 
-        implementiert.
+    Args:
+        frame_messung (tk.LabelFrame):
+            Mess frame Zuordnung der Buttons
+
+        hauptfenster (tk.Widget): 
+            GUI Hauptfenster um die states zu erhalten oder zu verändern
+        
+        value_radio_klick (bool):
+            Zur Auswahl welche Darstellung durchgeführt wird
+    
     """
     
     #Flag im Hauptfenster Zustand ablegen
@@ -892,17 +1016,25 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
     button_toggle = create_button(frame_messung, text="Messung starten", primary=True)
     button_toggle.pack(anchor="w", pady=10, padx=10)
 
-    #Flag im Hauptfenster-Zustand ablegen
+    #Flag im Hauptfenster Zustand ablegen
     hauptfenster.state["status_var"] = status_var
     hauptfenster.state["button_toggle"] = button_toggle
 
-    #Status für dei LED setzen
+    #Status für die LED setzen
     status_led =   tk.IntVar(value=1)
     hauptfenster.state["led_var"] = status_led
 
     def start_stop_button():
+
+        """
+        Ermöglicht einen stopp und Messungs fortsetzen Button. Man kann natürlich
+        die Messung auch immer wieder von neuem starten, dennoch ist die Möglichkeit
+        der pause usw. sowie fortsetzen vorhanden. Hier gilt besser haben als
+        brauchen.
+        """
+
         if not hauptfenster.state["messung_laeuft"]:
-            # --- Messung STARTEN ---
+            #Messung STARTEN
 
             #Mit jeder neuen Messung muss das Interface entleert werden
             index_csv()
@@ -917,6 +1049,7 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
 
             hauptfenster.state["messung_laeuft"] = True
 
+            #Button wird verändert
             button_toggle.config(
                 text="Messung beenden",
                 bg="lightgreen",
@@ -927,11 +1060,12 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
             status_var.set("Messung läuft…")
             status_led.set(0)
         else:
-            # --- Messung BEENDEN ---
+            #Messung BEENDEN
             stop_messung()   #hier drin sollte run_event.clear() usw. stehen
 
             hauptfenster.state["messung_laeuft"] = False
 
+            #Button wird verändert
             button_toggle.config(
                 text="Messung neu starten",
                 bg="#1e88e5",
@@ -949,19 +1083,33 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
 def LED_status(frame_led, hauptfenster):
 
     """
-        Erzeugt die LED. Dient als reiner Indikator das die Messung läuft.
-        Das bedeutet selbst wenn nichts angezeigt wird weis man dennoch, dass
-        die Messung gestartet wurde
+    Erzeugt eine Led die zusätzlich als Indikator dient ob die Messung läuft
+    (leuchtet grün) oder nicht (leuchtet rot). Das dient dazu falls eventuell
+    keien Darstellung erfolgt die Messung aber läuft könnte man darauf schließen, 
+    Probleme beim Messaufbau usw. Das hauptfenster wird wieder für den 
+    Status verändert.
+
+    Args:
+        frame_led (tk.LabelFrame):
+            Frame für die Zuordnung
+        
+        hauptfenster (tk.Widget):
+            Zuordnung der LED auf dem Hauptfenster des GUI
         
     """
 
     #LED/Anzeige erzeugen
-    status_led = hauptfenster.state["led_var"]
+    status_led = hauptfenster.state["led_var"]  
     led = tk.Canvas(frame_led, width=60, height=60, highlightthickness=0, bg="#f5f7fa")
     led.pack(expand=True, pady=(20, 0))
     dot = led.create_oval(5, 5, 55, 55, fill="red", outline="black",width=2)  #start rot
 
     def update_led(*_):
+
+        """
+        Update Funktion für die Farbe der LED
+        """
+
         led.itemconfig(dot, fill="green" if status_led.get() == 0 else "red")
     
     update_led()
@@ -973,8 +1121,13 @@ def LED_status(frame_led, hauptfenster):
 def close_hauptfenster(frame_messung,hauptfenster):
 
     """
-    Die Funktion close_Hauptfenster erzeugt den Button zum schließen 
-    des Fensters.
+    Es wird ein Button erzeugt, welcher das GUI beendet. Man kann acuh klassisch
+    auf das "X" oder "ALT F4". Dieser Button ist ein reiner Zusatz und befindet
+    sich im selben Frame mit den Messbuttons. 
+
+    Args:
+        frame.messung (tk.LabelFrame):
+
     """
 
     #eine schließen Button erzeugen, welcher das gesamte GUI beendet
@@ -989,14 +1142,37 @@ def close_hauptfenster(frame_messung,hauptfenster):
 def messung_pausieren(frame_messung,hauptfenster,messung_fort_button):
 
     """
-    Button für Messung stoppen
+    Erzeugt den Button Messung pausieren. Das bedeutet man hat die Möglichkeit 
+    während der laufenden Messung die Messung zu stoppen/pausieren. Der Messung
+    Pausieren Button hängt natürlich auch mit dem Messung fortsetzen Button
+    zusammen. Der Messung fortsetzen Button wird nur eingeblendet, wenn
+    die Messung überhaupt pausiert wurde.
+
+    Args:
+        frame_messung (tk.LabelFrame):
+            Zuordnugn des Buttons Messung pausieren
+        
+        hauptfenster (tk.Widget):
+            GUI Zuordnung
+        
+        messung_fort_button (tk.Button):
+            Ist für den Messung fortsetzen Button, nur bei Pausierung möglich
+
+
+
+
+
     """ 
     def on_pause():
-        # nur pausieren, wenn überhaupt eine Messung läuft
+        #nur pausieren, wenn überhaupt eine Messung läuft
         if not hauptfenster.state.get("messung_laeuft", False):
             return
 
+
+        #stopp die Messung
         stop_messung()
+
+        #State setzen
         hauptfenster.state["messung_laeuft"] = False
 
         #Led
@@ -1004,22 +1180,28 @@ def messung_pausieren(frame_messung,hauptfenster,messung_fort_button):
         if led_var is not None:
             led_var.set(1)
 
+        #Status erhalten und abspeichern
         status_var = hauptfenster.state.get("status_var")
         button_toggle = hauptfenster.state.get("button_toggle")
 
+        #Bedingungen für dei Fälle und was passieren sollte
         if status_var is not None:
             status_var.set("Gestoppt (pausiert)")
 
         if button_toggle is not None:
+            #Den bereits erzeugten Button neu konfigurieren
             button_toggle.config(
-                text="Messung neu starten",
+                text="Messung neu starten",     
                 bg="#1e88e5",
                 activebackground="#1565c0",
                 fg="white",
                 activeforeground="white",
             )
 
+        #Messung fortsetzen
         if messung_fort_button is not None:
+
+            #anpassen und positionieren des Messung fortsezten button
             messung_fort_button.pack_configure(anchor="w", padx=10, pady=5)
 
         #LED für die Reihenfolge hier paltzieren
@@ -1028,12 +1210,14 @@ def messung_pausieren(frame_messung,hauptfenster,messung_fort_button):
             frame_led.pack_forget()
             frame_led.pack(expand=True, fill="both")
 
+    #Messung stopp Button generieren
     messung_stopp_button = create_button(
         frame_messung,
         text="Messprogramm pausieren/stoppen",
         command=on_pause,
         primary=False,
     )
+    #Messung stopp Button positionieren
     messung_stopp_button.pack(anchor="w", padx=10, pady=5)
 
 
@@ -1042,9 +1226,24 @@ def messung_fortsetzen(frame_messung,hauptfenster,value_radio_klick):
     """
     Dieser Button soll die Messung fortsetzen und die Datei an diesem Punkt 
     weiter beschreiben. Das heißt die Messung läuft wird pausiert bzw. gestopp,
-    dieser Zeitpunkt oder der letzte Eintrag ist relevant denn dnach diesem, wenn 
+    dieser Zeitpunkt oder der letzte Eintrag ist relevant denn nach diesem, wenn 
     man den Button Messung fortsetzen klickt soll dann an dieser Stelle die
-    Dateineintragung weiter gehen 
+    Dateineintragung weiter gehen.
+
+    Args:
+        frame_messung (tk.LabelFrame):
+            Zuordnung des Buttons in den richtigen Frame
+        
+        hautpfenster (tk.Widget):
+            GUI Zuordnung
+        
+        value_radio_klick(bool):
+            Je nach dem welcher Frame aktiviert wird für die Beschriftung relevant
+
+    Return:
+        messung_fort_button(tk.Button):
+            Der erzeugte Messung fortsetzen Button wird zurückgegeben
+
     """
 
     def on_fortsetzen():
@@ -1109,9 +1308,29 @@ def messung_fortsetzen(frame_messung,hauptfenster,value_radio_klick):
 def container_left(hauptfenster):
 
     """
-    für die drei Bereiche links Container erstellen um die Buttons und Anzeigen
-    richitg anzuordnen.
-    Damit ist auch gewährleistet dass das ganze GUI sauber aussieht
+    Wie zuvor für die live Plots wird ein Kontainer für die linke Seite des 
+    Bildschirms erstellt. Es werden vier Kontainer benötigt. Die Kontainer 
+    beinhalten. Es werden vier Kontainer mit unterschiedlicher Gewichtung 
+    benötigt. Dazu werden wieder die jeweiligen Frames erzeugt. Diese dienen
+    zur Beschriftung. Das macht man um die einzelne FUnktion zu seperieren
+    und das GUI übersichtlicher zu gestallten.
+
+    Args:
+        hauptfenster (tk.Widget):
+            GUI Zuordnung
+    
+    Returns:
+        frame_scale (tk.LabelFrame):
+            beschriftet den Skalierungsfaktor Container
+
+        frame_messung_ss (tk.LabelFrame):
+            beschriftet den Messungs Container
+
+        frame_hysterese_perme (tk.LabelFrame):
+            beschriftet die Auswahl ob Permabilität oder Hysterese gemessen wird Container
+
+        frame_cursor (tk.LabelFrame):
+            beschriftet den Cursour, Sample Rate, Anzahl Messungen Container
     """
 
     #Container für die Frames erzeugen
@@ -1198,7 +1417,7 @@ def container_left(hauptfenster):
     frame_messung_anzeige = tk.Frame(frame_info, bg="#f5f7fa")
     frame_messung_anzeige.pack(side="left")
 
-    # Rechter Block: Sample Rate
+    #Rechter Block: Sample Rate
     frame_sample_anzeige = tk.Frame(frame_info, bg="#f5f7fa")
     frame_sample_anzeige.pack(side="left", padx=(25, 0))
 
@@ -1264,12 +1483,39 @@ def container_left(hauptfenster):
 
 def hyst_perm_auswahl(frame_hyst_perm,hauptfenster):
     
+    """
+    Die Funktion wird benötigt, weil ein Teil des Labors ist es die 
+    differentielle Permeabilität zu messen. Es ändern sich ausgehend 
+    von den Skalierungsfaktoren die neuen Skalierungen bzw. die Berechnung
+    der differentiellen Permeabilität. Daher muss mittels Radio Button
+    eine Unterscheidung durchgeführt werden, ob Hysterese oder Permeabilität
+    gemessen wird.
+
+    Args:
+        frame_hyst_perm (tk.LabelFrame):
+            Der benötigte Frame in dem der Radio Button erzeugt wird
+
+        hauptfenster (tk.Widget):
+            GUI Zuordnung und für den Status von Variablen benötigt
+    
+    Returns:
+        value_radio(int):
+            Man benkommt eine 0 oder 1 zurück
+    """
+
+    #Value Variable zuweisen
     value_radio = tk.IntVar(value=0)
     label_B = hauptfenster.state["label_B"] 
     cursor_B_var = hauptfenster.state["cursor_B_var"]
 
 
     def on_radio_change(*args):
+        
+        """
+        Bei Änderung des Buttons erfolgt die Unterscheidung und somit
+        eine neue Beschriftung. Es muss sich der Frame des live Plots
+        und der Cursour ändern
+        """
 
         if value_radio.get() == 0:
             hauptfenster.frames["permeabilität"].grid_remove()
@@ -1308,14 +1554,35 @@ def hyst_perm_auswahl(frame_hyst_perm,hauptfenster):
 def datei_laden(hauptfenster,pfad):
 
     """
-    Funktion behandelt das öffnen und laden einer alten Datei. 
-    Es wird hier berücksichtight, dass man zu Beginn der Übergangsphase auch
-    die alte Datei geladen werden kann
+    Diese Funktion ermöglicht es die gemessenen Daten darzustellen. 
+    Dabei ist eine Mehrfachauswahl möglich. Somit kann man im Anschluss
+    an die Messungen die Daten laden und die einzelnen Versuche durchbesprechen.
+    Alle ausgewählten Dateien werden in einen Plot dargestellt. Somit ist eine
+    sofortige Besprechung einer Hystereseschleife bei verschiedenen Frequenzen
+    möglich. Man kann auch nur einzelnende Dateien betrachten. Außerdem ist es
+    möglich den neuen Dateityp CSV sowie den alten .dat Dateien zu laden und darzustellen.
+    Wichtig ist es müssen zuvor die Skalierungsfaktoren eingegeben werden.
+
+    Args:
+        hauptfenster (tk.Widget):
+            Hauptfenster für States benötigt
+        
+        pfad (str):
+            Man erhält den aktuellen Pfad der Dateien bzw. wird beim 
+            Aufrufen von Daten laden benötigt
+    
+    Returns:
+        h (float):
+            Skalierungsfaktor für magnetische Feldstärke H
+        
+        b (float):
+            Skalierungsfaktor für die magnetische Flussdichte B
     """
 
     #Datei laden
     ext = os.path.splitext(pfad)[1].lower()
 
+    #prüfen auf Dateityp das ist für die alten Dateien
     if ext in [".cfg",".dat"]:
 
         #Skalierung berücksichtigen, das heißt Reihe 2 und Reihe 3 Daten 
@@ -1326,12 +1593,12 @@ def datei_laden(hauptfenster,pfad):
 
         data = data_l.astype(float)
 
-        # 3 Spalten extrahieren
+        #3 Spalten extrahieren
         t  = data[:, 0]
         ux = data[:, 1]
         uy = data[:, 2]
 
-
+    #für die neuen Dateien
     elif ext == ".csv":
 
         data = np.genfromtxt(pfad,delimiter=";",skip_header=1)
@@ -1341,6 +1608,7 @@ def datei_laden(hauptfenster,pfad):
         ux = data[:, 1]
         uy = data[:, 2]
 
+    #Falls kein gültiger Dateityp verwendete wird kommt es zu dieser Fehlermeldung
     else: 
         messagebox.showerror("Kein gültiger Dateityp, bitte verwenden Sie" \
         ".cfg, .data oder .csv")
@@ -1350,8 +1618,9 @@ def datei_laden(hauptfenster,pfad):
     h = ux * hauptfenster.state.get("scale_H")
     offset = get_offset()
     b = (uy - offset) * hauptfenster.state.get("scale_B")
-    print("Verwendeter Offset beim Laden:", offset)
+    #print("Verwendeter Offset beim Laden:", offset)
 
+    #Warnung wenn keine Skalierungsfaktoren eingeben und gespeichert wurden
     if h is None or b is None:
 
         messagebox.showwarning("Achtung keine gültigen Skalierungsfaktoren")
@@ -1363,20 +1632,33 @@ def datei_laden(hauptfenster,pfad):
 def ploten_kurven(value,hauptfenster,pfade):
 
     """
-    Darstellung der geladenen Dateien 
-    """
+    Die geladenen Daten werden dargestellt. Die Plots werden immer mittels
+    der klassichen matlplotlib Bibliothek dargestellt man erhält also für jedes 
+    neue Daten laden einen neunen Plot.
 
+    Args:
+        value (int):
+            Für die Unterscheidung welche Darstellugn wird benötigt. Entweder
+            die Hysterese oder die Permeabilität wird dargestellt.
+
+        hauptfenster (tk.Widget):
+            Für Status von Variablen
+        
+        pfade (str):
+            Für die Dateipfade der Messdateien
+
+    """
+    
     plt.figure()
 
+    #um die Pfade sowie die Skalierungsfaktoren zu erhalten
     for pfad in pfade:
         
         H,B = datei_laden(hauptfenster,pfad)
         label = os.path.splitext(os.path.basename(pfad))[0]
 
 
-        
-    #Mittels Unterscheidung auswählen ob Permeabilität oder Hysterese 
-
+        #Mittels Unterscheidung auswählen ob Permeabilität oder Hysterese 
         if value == 0:
             plt.plot(H, B, label=label)
 
@@ -1415,10 +1697,16 @@ def ploten_kurven(value,hauptfenster,pfade):
 def daten_laden(hauptfenster):
 
     """
-    Druch diese FUnktion ist es möglich Messdaten zu laden und diese darzustellen.
+    Druch diese Funktion ist es möglich Messdaten zu laden und diese darzustellen.
     Achtung Skalierungsfaktoren und die verschiedene Messungen berücksichtigt 
     werden. Das heißt Skalierungsfaktoren überprüfen und dann Auswahl welche 
-    Messung geprintet werden soll.
+    Messung geprintet werden soll. Erzeugen der Radiobutton um zu Überprüfen, 
+    welche Mesung dargestellt werden soll. DaS bedeutet Messung Hysterese oder
+    Permeabilität. Es erscheint ein Pop up Fenster für die Auswahl.
+
+    Args:
+        hauptfenster (tk.Widget):
+            Um den Status von bestimmten Variablen zu erhalten
     """
 
     h = hauptfenster.state.get("scale_H")
@@ -1428,10 +1716,7 @@ def daten_laden(hauptfenster):
         messagebox.showwarning("Fehler","Keine Skalierungsfaktoren eingeben")
         return
     """
-    Erzeugen der Radiobutton um zu Überprüfen, welche Mesung dargestellt 
-    werden soll. DAS bedeutet Messung Hysterese verschiedene Frequenzen, 
-    Entmagnetisierung, Permeabilität und Neukurve. Diese 4 Varianten gibt es
-    und müssen berücksichtigt werden.
+    
     """
 
     #müssen für dei Radiobutton ein neues Fenster erzeugen
@@ -1446,8 +1731,7 @@ def daten_laden(hauptfenster):
 
     #Erzeugen Radiobutton
     hysterese_frequenzen_radio = tk.Radiobutton(radio_button_fenster,
-                                                text="Hysterese bei verschiedene " \
-                                                "Frequenzen",
+                                                text="Hysterese",
                                                 variable = auswahl_radio, value= 0,
                                                 background="#e4e7ec",
                                                 selectcolor="#e4e7ec",
@@ -1515,14 +1799,29 @@ def daten_laden(hauptfenster):
 
 def start_plot_nach_auswahl(value_radio_klick,hauptfenster):
 
+    """
+    Damit werden die jeweiligen live Plot Darstellungen ausgewählt.
+    Wie wird der Frame beschriftet und die Skalierungsfaktoren werden
+    verändert. Änderung pber die Radio Button.
+
+    Args:
+        value_radio_klick (int):
+            Je nach dem welcher Button aktiv ist ist der Zustand null oder 
+            eins und wird für die Fallunterscheidung verändert.
+        
+        hauptfenster (tk.Widget):
+            Für den Frame beötigt und um den Funktionsaufruf anderer Funktionen
+            zu ermöglichen.
+    """
+
     if value_radio_klick.get() == 0:
-        print("→ Hysterese-Messung")
+        print("Hysterese-Messung")
         frame_hyst = hauptfenster.frames["hysterese"]
         if not hasattr(frame_hyst, "live"):
             hysterese_live_plot(hauptfenster)
             
     else:
-        print("→ Permeabilitäts-Messung")
+        print("Permeabilitäts-Messung")
         frame_perm = hauptfenster.frames["permeabilität"]
         if not hasattr(frame_perm, "live"):
             permeabilitaet_live_plot(hauptfenster)
@@ -1531,15 +1830,23 @@ def start_plot_nach_auswahl(value_radio_klick,hauptfenster):
 def eingabe_daten(fenster,hauptfenster):
 
     """
-    Die Funktion erzeugt mehrer Eingabefelder, welche wie gewünscht umgesetzt
-    werden soll. DAbei geht es um die Sample rate und eine UB-Offset kompensation.
-    Außerdem soll es ein Daten laden Button geben, welcher alte Datein (csv-Datein)
-    laden kann um bei eventuellen Problemen des Hauptprogramms oder eine fehlerhafte 
-    Messung dennoch eine alternative bietet Ergebnisse mit den Studierenden zu 
-    besprechen.
+    Es handelt sich um ein eigenes Fenster, welches mittels einem Kontainer in
+    drei Bereiche Unterteilt wird. In einem Offset, Sample rate und einen Daten
+    laden Bereich. Man kann dort eien Offset eingeben und so korrekturen vornehmen.
+    Der Button Daten laden für eine Plot wird dort dargestellt. Außerdem können
+    ausgewählte Sample rates gewählt werden. Es ist nicht möglich selbst eine
+    Sample rate einzugeben. Außerdem sollte die zur Verfügung gestellten
+    für dieses Labor ausreichend sein. 
+
+    Args:
+        fenster (tk.Widget):
+            Für die Zuweisung in das neue Fenster was sich öffnet. Das Haupt GUI
+            bleibt erhalten.
+
+        hauptfenster (tk.Widget):
+            Für den Status von Variablen
     """
     #Kontainer für sauber Anordnung erzeugen
-
     ein_container = tk.Frame(fenster,  bg="#e4e7ec")
     ein_container.pack()
 
@@ -1562,13 +1869,10 @@ def eingabe_daten(fenster,hauptfenster):
     frame_offset.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
     #Frame für Daten laden
-    #Frame für Offset
     frame_daten_laden = tk.LabelFrame(ein_container, text="Daten laden", relief="ridge",
                                     bd=6,padx=10,pady=10,background="#f5f7fa",
                                     font=("Arial", 10, "bold"))
     frame_daten_laden.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
-
-    #Eingabefelder und Button erzeugen und den Frames zuweisen
 
     #Daten laden Button
     daten_laden_button = create_button(
@@ -1580,7 +1884,6 @@ def eingabe_daten(fenster,hauptfenster):
     daten_laden_button.pack()
 
     #Sample Spin Box, also Dropdown menü
-
     #Label für die Beschriftung der eingabe 
     lbl_sample = tk.Label(frame_sample, text="Sample rate [S/s]:", bg="#f5f7fa")
     lbl_sample.grid(row=0, column=0, padx=5, pady=5, sticky="w")
@@ -1591,7 +1894,7 @@ def eingabe_daten(fenster,hauptfenster):
     sample_box.grid(row=0, column=1, padx=5, pady=5)
     sample_rate(2000)
 
-    #Werte bei jeder Änderung übernehmen
+    #Werte bei jeder Änderung übernehmen, ändert die Sample rate
     def sample_change(event):
         try:
             wert = int(sample_box.get())
@@ -1611,9 +1914,32 @@ def eingabe_daten(fenster,hauptfenster):
     
 
 def fenster_einstellungen(hauptfenster):
+
+    """
+    Es handelt sich um das unter Einstellungen für das Messprogramm Fenster.
+    Es wird eine neues Fenster erstellt, welches dazu dient neue Funktionen, 
+    welche nicht zugänglich sind für die Studierenden zu ermöglichen. Man kann
+    Daten laden die Sample rate verändern sowie einen Offset einstellen.
+
+    Args: 
+        hauptfenster (tk.Widget):
+            Für die Zuordnung der Einstellungen 
+
+    Returns:
+        ein_fenster (tk.Toplevel):
+            man erhält das neu erzeugte Fenster
+    """
+
+    #Fenster erstellen
     ein_fenster =tk.Toplevel()
-    ein_fenster.title("Erweiterte Eintstellung für das Messprogramm")
+
+    #Beschriftung
+    ein_fenster.title("Erweiterte Eintstellungen für das Messprogramm")
+
+    #Größe
     ein_fenster.geometry("600x400")
+
+    #Hintergrundfarbe
     ein_fenster.configure(bg="#e4e7ec") #Hexcode für hellgrau 
 
     eingabe_daten(ein_fenster,hauptfenster)
@@ -1622,12 +1948,32 @@ def fenster_einstellungen(hauptfenster):
 
 def login_passwort(pw_entry,fenster,hauptfenster):
 
+    """
+    Damit nicht jeder in das Menü gelangen kann, wird zuvor ein Passwort
+    abgefragt. Das Passwort lautet hysterese. Bei erfolgreicher Eingabe
+    erhält man Zugriff auf neue Funktion in einem eigenen Fenster.
+
+    Args:
+        pw_entry (str):
+            Man erhält das eingegbene Passwort
+        
+        fenster (tk.Toplevel):
+            Das Login Fenster was erzeugt wurde wo die Passwort eingabe stattfindet
+            wird am ende zerstört also ist nicht mehr sichtbar
+        
+        hauptfenster (tk.Widget):
+            Für weitere Funktionsaufrufe benötigt
+
+    
+    """
+
+    #eingetragenen Passwort in Variable abspeichern
     password = pw_entry.get()
 
     #Login Meldung 
     if password == "hysterese":
         messagebox.showinfo("Login Successful", "Zugriff erlaubt.")
-        fenster.destroy()  # Login-Fenster schließen
+        fenster.destroy()   #Login-Fenster schließen
 
         #hier dann das neue Einstellungsfenster öffnen
         fenster_einstellungen(hauptfenster)
@@ -1637,28 +1983,36 @@ def login_passwort(pw_entry,fenster,hauptfenster):
 
 def offset_eingabe(frame_offset):
 
-    #Label und Entry erzeugen, welches dann den Offset speichern soll
+    """
+    Erzeugt ein Eingabefeld in dem man einen Spannungswert eingeben kann, welcher
+    die einen Offset korrigiert.
 
-    # Label
+    Args:
+        frame_offset (tk.LabelFrame):
+            Frame in erweiterte Einstellung wird zur Zuordnung benötigt des
+            neu erstellten Eingabefeldes
+    """
+
+    #Label für die Beschriftung
     label_offset = tk.Label(frame_offset, text="UB-Offset [V]:", bg="#f5f7fa")
     label_offset.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
-    # Entry
+    #Eingabefeld Offset erzeugen
     entry_offset = tk.Entry(frame_offset, width=10)
     entry_offset.grid(row=0, column=1, padx=5, pady=5)
     entry_offset.insert(0, "0.0")
 
-     # Ausgabefunktion
+    #Ausgabefunktion
     def offset_uebernehmen():
         text = entry_offset.get().replace(",", ".")
         try:
             wert = float(text)
-            update_offset(wert)
+            update_offset(wert) #Updaten des aktuellen Offset werts
             messagebox.showinfo("UB-Offset", f"UB-Offset auf {wert} V gesetzt.")
         except ValueError:
             messagebox.showerror("Fehler", "Bitte eine gültige Offset-Spannung eingeben.")
 
-    # Button
+    #Button für das Speichern/ Übernehmen des Offsets
     btn_offset = create_button(
         frame_offset,
         text="Offset übernehmen",
@@ -1669,13 +2023,24 @@ def offset_eingabe(frame_offset):
 
 def optionen(hauptfenster):
 
+    """
+    Erzeugt das Fenseter für den Login in das Einstellungsfenster. 
+    Das Fenster pop auf und fragt nach dem Passwort. 
+
+    Args:
+        hauptfenster (tk.Widget):
+            Zuordnung des Menuaufrufs im Haupt GUI
+
+    
+    """
+
+    #Erzeugeen des Nebenfenster für den Login
     nebenfenster =tk.Toplevel()
     nebenfenster.title("Login für Einstellungen")
     nebenfenster.geometry("200x200")
     nebenfenster.configure(bg="#e4e7ec") #Hexcode für hellgrau 
 
     #Erzeugen und Platzieren des Eingabefeldes des Passwort
-    
     #Label Passwort
     pw_label = tk.Label(nebenfenster, text="Passwort: ", bg="#e4e7ec",font=14)
     pw_label.pack()
@@ -1696,9 +2061,11 @@ def optionen(hauptfenster):
     )
     login_button.pack()
 
+    #Für die Überprüfung des Passworts
     pw_entry.bind("<Return>", lambda event: login_passwort(pw_entry, nebenfenster,
                                                            hauptfenster))
 
+    #Platzierung des Eingabefeldes
     pw_entry.pack(pady = 10)
     pw_label.pack(pady= 5)
 
@@ -1706,14 +2073,30 @@ def optionen(hauptfenster):
 
 def neuen_ordner(hauptfenster):
 
+    """
+    Dadurch wird ermöglicht das man den Speierort ändern kann in dem 
+    die Messdateien abgelegt werden. Kann im Hauptfenster verändert werden.
+
+    Args:
+        hauptfenster (tk.Widget):
+            Für die Zuordnung des Auswahlfeldes
+
+    Returns:
+        True
+    """
+
+    #fragen nach dem neuen Verzeichnis SPeicherort
     pfad = filedialog.askdirectory(
+
         parent=hauptfenster,
         title="Speicherordner für CSV-Dateien auswählen"
     )
 
+    #bei keinem gültigen Pfad
     if not pfad:
         return False
 
+    #danach wird der neue Pfad gesetzt
     set_csv_ordner(pfad)
     messagebox.showinfo(
         "Speicherort gesetzt",
@@ -1723,6 +2106,7 @@ def neuen_ordner(hauptfenster):
     return True
 
 def untermenue(hauptfenster):
+
     """
     Die Funktion erzeugt eine Untermenü um Messpprogramm, welches Passwort 
     geschützt ist. In diesem Unterprogramm ist es möglich eine Offset einzustellen,
@@ -1731,6 +2115,10 @@ def untermenue(hauptfenster):
     fixer Wert vorgesehen, wenn dieser aber eingetragen wird dann wird damit dieser
     Wert überschrieben für Messungen so lange, bis das Messprogramm neu gestartet
     wird.
+
+    Args:
+        hauptfenster (tk.Widget):
+            Für die Zuordnung des Untermenüs
     """
 
     #um eine Menüleiste zu erzeugen
@@ -1752,6 +2140,18 @@ def untermenue(hauptfenster):
 
 def willkommensfenster(hauptfenster):
 
+    """
+    Beim Start des Programms startet das GUI und es kommt dieses neue Fenster.
+    Es geht darum, dass sofort ein Ordner ausgewählt wird für die Messdateien. 
+    Das heißt der Speicherort wird festgelegt. Sobald dieser festgelegt wird
+    schließt sich dieses Fenster automatisch.
+
+    Args:
+        hauptfenster (tk.Widget):
+            Zuordnung des Popup Fensters benötigt
+    """
+
+    #erzeugen des Popup Fenster
     popup = tk.Toplevel(hauptfenster)
     popup.title("Willkommen")
     popup.geometry("500x250")
@@ -1759,10 +2159,12 @@ def willkommensfenster(hauptfenster):
     popup.transient(hauptfenster)
     popup.grab_set()
 
+    #hier erfolgt die ordner auswahl
     def ordner_auswaehlen():
         if neuen_ordner(hauptfenster):
             popup.destroy()
 
+    #Beschriftungen des Popup fensters
     tk.Label(
         popup,
         text="Willkommen zum Messprogramm Magnetika",
@@ -1774,6 +2176,7 @@ def willkommensfenster(hauptfenster):
         text="Bitte wählen Sie einen Speicherort\nfür die Messdaten aus."
     ).pack(pady=10)
 
+    #Button für Ordner auswählen generieren
     create_button(
         popup,
         text="Ordner auswählen",
@@ -1786,20 +2189,28 @@ def willkommensfenster(hauptfenster):
 
 
 class Hauptfenster(tk.Tk):
-    """
-    Die Klasse erzeugt das Hauptfenster 
 
-    Rückgabewert: 
-        Hauptfenster
-    
-    Das Gui wird auch als FUnktion erstellt, weil man es dann einfach in der Main
-    aufrufen kann
+    """
+    Die Klasse erzeugt das Hauptfenster. Wird benötigt um die eigentlichen
+    Buttons, Funktionen und Plots zuzuweisen und darauf zu positionieren.
+    Das hauptfenster sollte sich auf die Bildschirmgröße im Vollbild anpassen.
+
+    Args:
+        (tk.TK):
+            Ist die Tinkter Bibliothek mit der das GUI erzeugt wird
+
 
     """
      
     def __init__(self):
+
+        """
+        erstellen und konfigurieren des Fensters
+        """
+
         super().__init__()
 
+        #Titel setzen
         self.title("Messprogramm Laborversuch Magnetika Hysterese")
 
         #Bildschirmgröße
@@ -1809,6 +2220,7 @@ class Hauptfenster(tk.Tk):
         self.geometry(f"{screen_width}x{screen_height}")
         self.configure(bg="#e4e7ec")
 
+        #Farbe Hintergrund usw.
         self.option_add("*Font", "Arial 10")
         self.option_add("*Label.background", "#f5f7fa")
         self.option_add("*Label.foreground", "#222222")
@@ -1828,6 +2240,17 @@ class Hauptfenster(tk.Tk):
 
 
 def GUI():
+
+    """
+    Hier werden die wichtigsten Funktionen aufgerufen. Damit das GUI starte
+    und die programmierten Eigenschaften hat. Dient also als reine Funktionsaufruf
+    Funktion.
+
+    Returns:
+        hauptfenster (tk.TK):
+            Wird für alles benötigt, Zuweisung von Buttons, Funktionen, live Plot
+            usw., es könne Statuse von Variablen gespeichert werden.
+    """
 
     #Hauptfenster
     hauptfenster = Hauptfenster()
