@@ -43,11 +43,11 @@ aktuelle_csv_datei = None
 def set_csv_ordner(pfad):
 
     """
-        Ändert bzw. speichert in der Variable CSV_Ordner den
-        aktuellen Pfad in dem die Daten als csv abgespeichert werden.
+    Ändert bzw. speichert in der Variable CSV_Ordner den
+    aktuellen Pfad in dem die Daten als csv abgespeichert werden.
 
-        Args:
-            pfad (str): Pfad zum Speicherordner
+    Args:
+        pfad (str): Pfad zum Speicherordner
     """
 
     global CSV_Ordner
@@ -57,11 +57,12 @@ def set_csv_ordner(pfad):
 def sample_rate(new_rate):
 
     """
-        Speichert die neuste Sample Rate S/s ab. Das bedeutet die ausgewählte
-        Sample Rate wird für die Messung verwendet.
+    Speichert die neuste Sample Rate S/s ab. Das bedeutet die ausgewählte
+    Sample Rate wird für die Messung verwendet.
         
-        Args:
-            new_rate (int): Neue Abtastrate in Samples pro Sekunde
+    Args:
+        new_rate (int): 
+            Neue Abtastrate in Samples pro Sekunde
 
     """
     global fs
@@ -70,10 +71,11 @@ def sample_rate(new_rate):
 def update_offset(wert):
 
     """
-        Speichert den eingestellen Offsetwert ab
+    Speichert den eingestellen Offsetwert ab
         
-        Args:
-            wert (float): Neuer Offsetwert
+    Args:
+        wert (float): 
+            Neuer Offsetwert
 
     """
     
@@ -83,12 +85,13 @@ def update_offset(wert):
 def get_offset():
 
     """
-        Gibt den aktuell eingestellten Offsetwert zurück.
-        Die Funktion wird vom GUI verwendet.
-        Als Funktion programmiert um diese im GUI aufrufen zu können.
+    Gibt den aktuell eingestellten Offsetwert zurück.
+    Die Funktion wird vom GUI verwendet.
+    Als Funktion programmiert um diese im GUI aufrufen zu können.
 
-        Returns:
-            u_offset (float): Aktueller Offsetwert   
+    Returns:
+        u_offset (float): 
+            Aktueller Offsetwert   
     """
 
     return u_offset
@@ -96,8 +99,8 @@ def get_offset():
 def index_csv():
 
     """
-        Die Funktion erhöht den globalen Wert von messung_index um eins.
-        Wird im Programm verwendet um die Messungen zu nummerieren.
+    Die Funktion erhöht den globalen Wert von messung_index um eins.
+    Wird im Programm verwendet um die Messungen zu nummerieren.
     """
 
     global messung_index
@@ -106,11 +109,12 @@ def index_csv():
 def get_messung_index():
 
     """
-        Dient nur um den aktuellen messung_index Wert im GUI abzufragen.
-        Als Funktion programmiert um diese im GUI aufrufen zu können.
+    Dient nur um den aktuellen messung_index Wert im GUI abzufragen.
+    Als Funktion programmiert um diese im GUI aufrufen zu können.
 
-        Returns:
-            messung_index (int): Gibt die aktuelle Anzahl an Messungen zurück
+    Returns:
+        messung_index (int): 
+            Gibt die aktuelle Anzahl an Messungen zurück
   
     """
 
@@ -120,9 +124,9 @@ def reset_messung_index():
 
     
     """
-        Die Funktion setzt den Wert der globalen Variable messung_index auf
-        null zurück. Wird im verwendet um die Messungen zu reseten zB. bei
-        einem Speicherort wechsel. Damit werden auch die CSV-Dateien nummeriert.
+    Die Funktion setzt den Wert der globalen Variable messung_index auf
+    null zurück. Wird im verwendet um die Messungen zu reseten zB. bei
+    einem Speicherort wechsel. Damit werden auch die CSV-Dateien nummeriert.
     """
 
     global messung_index
@@ -131,19 +135,25 @@ def reset_messung_index():
 def kontrolle(x_werte,y_werte,n):
 
     """
-        Dient zur Kontrolle der Messwerte es muss zu jedem x eine 
-        y Wert geben. Ist das nicht der Fall wird ein runtime Error ausgelöst.
-        Das bedeutet also die gleiche Anzahl an Spannungs x Werten muss man für 
-        Spannungswerte y haben. Wird nciht am Gui dargestellt ist ein
-        Kontrollwerkzeug für den oder die Programmier:in für die csv datei
+    Dient zur Kontrolle der Messwerte es muss zu jedem x eine 
+    y Wert geben. Ist das nicht der Fall wird ein runtime Error ausgelöst.
+    Das bedeutet also die gleiche Anzahl an Spannungs x Werten muss man für 
+    Spannungswerte y haben. Wird nciht am Gui dargestellt ist ein
+    Kontrollwerkzeug für den oder die Programmier:in für die csv datei
 
-        Args:
-            x_werte (numpy.ndarray): Messwerte des ersten Oszilloskopkanals
-            y_werte (numpy.ndarray): Messwerte des zweiten Oszilloskopkanals
-            n (int): Anzahl der gültigen Samples
+    Args:
+        x_werte (numpy.ndarray): 
+            Messwerte des ersten Oszilloskopkanals
+
+        y_werte (numpy.ndarray): 
+            Messwerte des zweiten Oszilloskopkanals
+
+        n (int): 
+            Anzahl der gültigen Samples
         
-        Returns/Raise:
-            RuntimeError: Wenn keine Samples empfangen wurden
+    Returns/Raise:
+        RuntimeError: 
+            Wenn keine Samples empfangen wurden
     """
 
     if len(x_werte) != len(y_werte):
@@ -155,18 +165,21 @@ def kontrolle(x_werte,y_werte,n):
 def berechnungen(ux_werte,uy_werte,zeit_s):
 
     """
-        Fasst die Zeitwerte und Messdaten in einem NumPy-Array zusammen.
+    Fasst die Zeitwerte und Messdaten in einem NumPy-Array zusammen.
 
-        Args:
-            zeit_s (numpy.ndarray):
-            Fortlaufende Zeitwerte der Messung.
+    Args:
+        zeit_s (numpy.ndarray):
+            Fortlaufende Zeitwerte der Messung
 
-            ux_werte (numpy.ndarray): Spannungswerte des ersten Oszilloskopkanals.
+        ux_werte (numpy.ndarray): 
+            Spannungswerte des ersten Oszilloskopkanals
 
-            uy_werte (numpy.ndarray): Spannungswerte des zweiten Oszilloskopkanals.
+        uy_werte (numpy.ndarray): 
+            Spannungswerte des zweiten Oszilloskopkanals
         
-        Returns:
-            numpy.ndarray: Array mit den Spalten Zeit, Ux und Uy
+    Returns:
+        numpy.ndarray: 
+            Array mit den Spalten Zeit, Ux und Uy
 
     """
     
@@ -177,13 +190,15 @@ def berechnungen(ux_werte,uy_werte,zeit_s):
 def csv_append_rows(pfad,daten):
 
     """
-        Diese Funktion erstellt eine neue Zeile für die CSV-Datei. Die neuen
-        Messdaten werden auch in die Datei geschrieben.
+    Diese Funktion erstellt eine neue Zeile für die CSV-Datei. Die neuen
+    Messdaten werden auch in die Datei geschrieben.
 
-        Args:
-            pfad (str): Pfad zur CSV-Datei
+    Args:
+        pfad (str): 
+            Pfad zur CSV-Datei
 
-            daten (numpy.ndarray): Messdaten, die in die CSV-Datei geschrieben werden.
+        daten (numpy.ndarray): 
+            Messdaten, die in die CSV-Datei geschrieben werden
         
     """
 
@@ -197,15 +212,16 @@ def csv_append_rows(pfad,daten):
 def csv_initialisieren():
 
     """
-        In dieser Funktion wird die csv Initialisiert. Das bedeutet es wird
-        geprüft ob der Ordner erstellt ist in dem die csv erzeugt wird. 
-        Jede Datei wird als Messung und mit einem Zeitstempel ausgestattet.
+    In dieser Funktion wird die csv Initialisiert. Das bedeutet es wird
+    geprüft ob der Ordner erstellt ist in dem die csv erzeugt wird. 
+    Jede Datei wird als Messung und mit einem Zeitstempel ausgestattet.
 
-        In dieser FUnktion wird die Kopfzeile erstellt.
-            "Zeit","Spannung_x","Spannung_y"
+    In dieser FUnktion wird die Kopfzeile erstellt.
+        "Zeit","Spannung_x","Spannung_y"
 
-        Returns:
-            str: Vollständiger Pfad der erzeugten CSV-Datei
+    Returns:
+        CSV_PATH (str): 
+            Vollständiger Pfad der erzeugten CSV-Datei
 
     """
 
@@ -235,13 +251,13 @@ def csv_initialisieren():
 def device_verfügbar():
 
     """ 
-        Prüft ob das Gerät angesteckt ist. Ohne Gerät funktioniert keine 
-        Messung. 
+    Prüft ob das Gerät angesteckt ist. Ohne Gerät funktioniert keine 
+    Messung. 
 
-        Returns:
-            int:
-                Anzahl der gefundenen Geräte.
-                Gibt 0 zurück, wenn kein Gerät erkannt wurde.
+    Returns:
+        int:
+            Anzahl der gefundenen Geräte
+            Gibt 0 zurück, wenn kein Gerät erkannt wurde
     """
 
     try:
@@ -255,13 +271,13 @@ def device_verfügbar():
 def try_open_device():
 
     """
-        Öffnet das Messgerät, stellt also Verbindung mit dem AD3 her.
-        Zuerst erfolgt die Überprüfung ob überhaupt ein Gerät angesteckt ist.
-        Danach wird es geöffnet.
+    Öffnet das Messgerät, stellt also Verbindung mit dem AD3 her.
+    Zuerst erfolgt die Überprüfung ob überhaupt ein Gerät angesteckt ist.
+    Danach wird es geöffnet.
         
-        Return:
-            dwf.Device | None:
-                Geöffnetes Gerät oder None, falls kein Gerät verfügbar ist
+    Return:
+        dwf.Device | None:
+            Geöffnetes Gerät oder None, falls kein Gerät verfügbar ist
 
     """
 
@@ -288,15 +304,15 @@ def try_open_device():
 def set_fortsetzen_modus(value: bool):
 
     """
-        Dient dazu die Messung fortzusetzen. Das bedeute wird im GUI
-        der Button Messung fortsetzen gedrückt wird die boolsche Variable 
-        gesetzt und die funktion aufgerufen. Die globale Variable 
-        fortsetzen_modus wird der boolsche Wert zugewiesen.
+    Dient dazu die Messung fortzusetzen. Das bedeute wird im GUI
+    der Button Messung fortsetzen gedrückt wird die boolsche Variable 
+    gesetzt und die funktion aufgerufen. Die globale Variable 
+    fortsetzen_modus wird der boolsche Wert zugewiesen.
 
-        Args:
-            value (bool):
-                True, wenn die aktuelle Messung fortgesetzt werden soll
-                False, wenn eine neue Messung gestartet werden soll
+    Args:
+        value (bool):
+            True, wenn die aktuelle Messung fortgesetzt werden soll
+            False, wenn eine neue Messung gestartet werden soll
     """
 
     global fortsetzen_modus
@@ -305,12 +321,12 @@ def set_fortsetzen_modus(value: bool):
 def start_device():
 
     """
-        Diese Funktion öffnet bzw. startet das device, das bedeutet
-        die Verbindung zwischen Software und Gerät wird versucht herzustellen
+    Diese Funktion öffnet bzw. startet das device, das bedeutet
+    die Verbindung zwischen Software und Gerät wird versucht herzustellen
 
-        Returns:
-            dwf.Device | None:
-                Geöffnetes Gerät oder None, falls kein Gerät gefunden wurde
+    Returns:
+        dwf.Device | None:
+            Geöffnetes Gerät oder None, falls kein Gerät gefunden wurde
 
     """
 
@@ -326,13 +342,13 @@ def start_device():
 def start_messung():
 
     """
-        Die Funktion startet die Messung. Das bedeutet es wird entweder 
-        die aktuelle Messung fortgesetzt oder eine neue Messung gestartet.
-        Außerdem wird das run_event gestartet. Das bedeutet es findet eine 
-        Parallelisierung statt der Messung. Es ist somit möglich den Wert
-        live darzustellen und diesen gleichzeitig abzuspeichern. Es wird 
-        somit die Funktion sample_update gestartet. Man startet daher den 
-        Thread welcher genau für die Parallelisierung sorgt.
+    Die Funktion startet die Messung. Das bedeutet es wird entweder 
+    die aktuelle Messung fortgesetzt oder eine neue Messung gestartet.
+    Außerdem wird das run_event gestartet. Das bedeutet es findet eine 
+    Parallelisierung statt der Messung. Es ist somit möglich den Wert
+    live darzustellen und diesen gleichzeitig abzuspeichern. Es wird 
+    somit die Funktion sample_update gestartet. Man startet daher den 
+    Thread welcher genau für die Parallelisierung sorgt.
         
     """
 
@@ -370,22 +386,22 @@ def start_messung():
 def sample_update():
 
     """
-        In dieser Funktion wird das AD3 konfiguriert. Das bedeutet, es handelt
-        sich um die eigentliche wichtige Messfunktion. Es werden die beiden
-        Oszilloskopkanäle konfiguriert. Man stellt die Kanäle als Input ein.
-        Zusätzlich werden die Range und der Offset eingestellt. In diesem Fall beträgt
-        die Range ±25 V.
-        Es könnte ebenfalls ein Offset eingestellt werden, dieser wird jedoch mittels
-        Software anders behoben.
+    In dieser Funktion wird das AD3 konfiguriert. Das bedeutet, es handelt
+    sich um die eigentliche wichtige Messfunktion. Es werden die beiden
+    Oszilloskopkanäle konfiguriert. Man stellt die Kanäle als Input ein.
+    Zusätzlich werden die Range und der Offset eingestellt. In diesem Fall beträgt
+    die Range ±25 V.
+    Es könnte ebenfalls ein Offset eingestellt werden, dieser wird jedoch mittels
+    Software anders behoben.
 
-        Durch das Event wird zuerst die Record-Konfiguration durchgeführt und
-        im Anschluss werden durch `scope.record` die jeweiligen Werte in einer Variable
-        gespeichert. Das hat zur Folge, dass der Messaufbau richtig sein muss, denn
-        es wird klar unterschieden, welcher Kanal die Spannung x und welcher die Spannung
-        y misst. Die Messwerte werden kurz geprüft und als letzten Schritt in die
-        Daten-Queue gegeben. Dadurch werden die einzelnen Messdaten aneinandergereiht.
-        Dies erlaubt den Zugriff durch den späteren Live-Plot. Die Daten werden
-        abschließend in der CSV-Datei gespeichert.
+    Durch das Event wird zuerst die Record-Konfiguration durchgeführt und
+    im Anschluss werden durch `scope.record` die jeweiligen Werte in einer Variable
+    gespeichert. Das hat zur Folge, dass der Messaufbau richtig sein muss, denn
+    es wird klar unterschieden, welcher Kanal die Spannung x und welcher die Spannung
+    y misst. Die Messwerte werden kurz geprüft und als letzten Schritt in die
+    Daten-Queue gegeben. Dadurch werden die einzelnen Messdaten aneinandergereiht.
+    Dies erlaubt den Zugriff durch den späteren Live-Plot. Die Daten werden
+    abschließend in der CSV-Datei gespeichert.
 
         
     """
@@ -450,12 +466,12 @@ def sample_update():
 def close_device(device):
 
     """
-        Schließt die Verbindung zum Messgerät.
+    Schließt die Verbindung zum Messgerät.
 
-        Args:
-            device (dwf.Device | None):
-                Zu schließendes Gerät. Falls der Wert None ist, wird keine Aktion
-                ausgeführt
+    Args:
+        device (dwf.Device | None):
+            Zu schließendes Gerät. Falls der Wert None ist, wird keine Aktion
+            ausgeführt
     """
 
     if device is not None:
@@ -468,14 +484,14 @@ def close_device(device):
 def stop_messung():
 
     """
-        Stoppt die laufende Messung.
+    Stoppt die laufende Messung.
 
-        Das globale Event ``run_event`` wird zurückgesetzt. Dadurch wird die
-        Messschleife in ``sample_update`` beendet.
+    Das globale Event run_event wird zurückgesetzt. Dadurch wird die
+    Messschleife in sample_update beendet.
 
-        Returns:
-            int:
-                Gibt 1 zurück, wenn die Messung gestoppt wurde
+    Returns:
+        int:
+            Gibt 1 zurück, wenn die Messung gestoppt wurde
                 
     """
     run_event.clear()
