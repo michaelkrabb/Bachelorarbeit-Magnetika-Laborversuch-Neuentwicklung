@@ -1410,12 +1410,12 @@ def container_left(hauptfenster):
     frame_cursor_zeile2.pack(anchor="w")
 
     #erstellen des Labels
-    label_H = tk.Label(frame_cursor_zeile1,width=10, textvariable=cursor_H_var,
+    label_H = tk.Label(frame_cursor_zeile1,width=16, textvariable=cursor_H_var,
                      anchor="w", font=("Arial", 10))
 
     label_H.pack(side="left")
 
-    label_B = tk.Label(frame_cursor_zeile2,width=10, textvariable=cursor_B_var,
+    label_B = tk.Label(frame_cursor_zeile2,width=16, textvariable=cursor_B_var,
                      anchor="w", font=("Arial", 10))
 
     label_B.pack(side="left")
@@ -1423,15 +1423,15 @@ def container_left(hauptfenster):
     
 
     #für signal label
-    label_Ux = tk.Label(frame_cursor_zeile1, width=10, textvariable=cursor_ux_var,
+    label_Ux = tk.Label(frame_cursor_zeile1, width=14, textvariable=cursor_ux_var,
                      anchor="w", font=("Arial", 10))
 
-    label_Ux.pack(side="left", padx=30)
+    label_Ux.pack(side="left", padx=(10, 0))
 
-    label_Uy = tk.Label(frame_cursor_zeile2, width=10, textvariable=cursor_uy_var,
+    label_Uy = tk.Label(frame_cursor_zeile2, width=14, textvariable=cursor_uy_var,
                      anchor="w", font=("Arial", 10))
 
-    label_Uy.pack(side="left", padx=30)
+    label_Uy.pack(side="left", padx=(10, 0))
 
     #Frame für Informationen wie Sample Rate und Messung Anzahl
     frame_info = tk.Frame(frame_cursor, bg="#f5f7fa")
