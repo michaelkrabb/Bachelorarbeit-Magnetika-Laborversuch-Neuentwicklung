@@ -456,9 +456,9 @@ def signal_live_plot(hauptfenster):
     fig.patch.set_facecolor("#f5f7fa")
     ax = fig.add_subplot(111)
     #Platz für Titel und Achsen
-    fig.subplots_adjust(top=0.9, bottom=0.25, left=0.07, right=0.98)
+    fig.subplots_adjust(top=0.88, bottom=0.32, left=0.08, right=0.92)
     #ax.set_title("Spannungen an den Messpunkten x und y")
-    ax.set_xlabel("Zeit [s]")
+    ax.set_xlabel("Zeit [s]", labelpad=2)
     ax.set_ylabel("Spannung [V]")
     ax.set_facecolor("#ffffff")
     ax.grid(True, linestyle=":", color="#d0d0d0", alpha=0.7)
