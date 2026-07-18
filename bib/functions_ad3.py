@@ -238,7 +238,12 @@ def csv_initialisieren():
     #Gesamter Pfad: Ordner + Dateiname
     CSV_Path = os.path.join(CSV_Ordner, dateiname)
 
-    with open(CSV_Path, mode="w", newline="") as file:
+    with open(CSV_Path, mode="w", newline="",encoding="utf-8") as file:
+
+        #Verwendeten Offset und Status der Korrektur speichern
+        file.write(f"Offset = {u_offset} V\n")
+
+        #erzeugen der kopfzeile für die Messeinträge
         writer = csv.writer(file, delimiter=";")
         kopfzeile = np.array(["Zeit","Spannung_x","Spannung_y"])
         writer.writerow(kopfzeile)

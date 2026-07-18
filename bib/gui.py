@@ -1628,13 +1628,34 @@ def datei_laden(hauptfenster,pfad):
 
     #für die neuen Dateien
     elif ext == ".csv":
+        
+        #Die ersten beiden Zeilen der Kopfzeile lesen
+        with open(pfad, "r", encoding="utf-8") as file:
+            offset_zeile = file.readline().strip()
 
-        data = np.genfromtxt(pfad,delimiter=";",skip_header=1)
-    
+        #Offset auslesen
+        offset = float(
+            offset_zeile.split("=")[1]
+            .replace("V", "")
+            .strip()
+        )
+
+        data = np.genfromtxt(pfad,delimiter=";",skip_header=2)
+
+        #Prüfen ob Datei leer ist
+        if data.size == 0:
+            messagebox.showerror(
+                "Fehlerhafte Datei",
+                "Keine Daten in der Datei vorhanden."
+            )
+            return None
+
         #3 Spalten extrahieren
         t  = data[:, 0]
         ux = data[:, 1]
         uy = data[:, 2]
+
+        
 
     #Falls kein gültiger Dateityp verwendet wird kommt es zu dieser Fehlermeldung
     else: 
@@ -1659,14 +1680,26 @@ def datei_laden(hauptfenster,pfad):
 
     h = ux * h_scale
 
+    #Diese if else ist entscheident für das Datei laden, ist die Datei
+    #bereits Offset korrigiert wird ein eingestellter Offset nicht mehr berücksichtigt
+    #ist die Messung mit keinem Offset durchgeführt worden wird dieser bei der
+    #Darstellung berücksichtigt
     if ext == ".csv":
-        b = uy * b_scale
-    else:
-        offset = get_offset()
-        b = (uy - offset) * b_scale
 
-    #print("Verwendeter Offset beim Laden:", offset)
+        print("Offset aus Datei:", offset)
 
+        if offset != 0:
+            #Die CSV-Datei wurde bereits mit einem Offset korrigiert
+            #print("Offset wurde bereits berücksichtigt")
+            b = uy * b_scale
+
+        else:
+            #Aktuell im Programm eingestellten Offset abrufen
+            eingestellter_offset = get_offset()
+
+            #print("Aktuell eingestellter Offset:", eingestellter_offset)
+
+            b = (uy - eingestellter_offset) * b_scale
 
     return h,b
 
@@ -1760,6 +1793,8 @@ def daten_laden(hauptfenster):
     h = hauptfenster.state.get("scale_H")
     b = hauptfenster.state.get("scale_B")
 
+    
+
     if h is None or b is None:
         messagebox.showerror(
                             "Fehlende Skalierungsfaktoren",
@@ -1821,7 +1856,7 @@ def daten_laden(hauptfenster):
             ("Messdateien", "*.csv *.dat *.cfg"),
             ("Alle Dateien", "*.*"),))
 
-
+    
     if not pfade:
         messagebox.showerror("Fehlender Dateipfad",
                                 "Es wurde keine Messdatei ausgewählt."
