@@ -456,7 +456,7 @@ def signal_live_plot(hauptfenster):
     fig.patch.set_facecolor("#f5f7fa")
     ax = fig.add_subplot(111)
     #Platz für Titel und Achsen
-    fig.subplots_adjust(top=0.88, bottom=0.32, left=0.08, right=0.92)
+    fig.subplots_adjust(top=0.98, bottom=0.32, left=0.08, right=0.92)
     #ax.set_title("Spannungen an den Messpunkten x und y")
     ax.set_xlabel("Zeit [s]", labelpad=2)
     ax.set_ylabel("Spannung [V]")
@@ -856,8 +856,8 @@ def plot_frames(hauptfenster):
     right_container.pack(side="left", fill="both", expand=True, padx=20, pady=20)
 
     #Grid-Verhältnis: oben klein (Signal), unten groß (Hysterese)
-    right_container.grid_rowconfigure(0, weight=1, uniform="rows")
-    right_container.grid_rowconfigure(1, weight=3, uniform="rows")
+    right_container.grid_rowconfigure(0, weight=2, uniform="rows")
+    right_container.grid_rowconfigure(1, weight=4, uniform="rows")
     right_container.grid_columnconfigure(0, weight=2)
 
     #frame Signal
@@ -968,9 +968,22 @@ def update_data(hauptfenster):
 
         #Hystereseplot
         if live_hyst is not None:
-            live_hyst["line_hb"].set_data(live_hyst["H"][::schritt],
-                                          live_hyst["B"][::schritt])
-            live_hyst["ax"].relim(); live_hyst["ax"].autoscale_view()
+            H_arr = np.asarray(live_hyst["H"], dtype=float)
+            B_arr = np.asarray(live_hyst["B"], dtype=float)
+
+            # Regulär reduzierte Indizes
+            indices = np.arange(0, len(H_arr), schritt)
+
+            # Positionen der NaN-Trennstellen
+            nan_indices = np.where(np.isnan(H_arr) | np.isnan(B_arr))[0]
+
+            # Beide Indexmengen zusammenführen und sortieren
+            indices = np.unique(np.concatenate((indices, nan_indices)))
+
+            live_hyst["line_hb"].set_data(H_arr[indices],B_arr[indices])
+            
+            live_hyst["ax"].relim() 
+            live_hyst["ax"].autoscale_view()
             live_hyst["canvas"].draw_idle()
 
         #Permeabilitätsplot
@@ -1270,22 +1283,42 @@ def messung_fortsetzen(frame_messung,hauptfenster,value_radio_klick):
 
     """
 
+
+
     def on_fortsetzen():
 
         if hauptfenster.state.get("messung_laeuft", False):
             print("Messung läuft bereits Fortsetzen ignoriert.")
             return
-    
-        # Flag setzen
+
+        #Trennstelle für die Plots einfügen
+        #Somit gibt es keine Verbindungslinie, wenn man messung fortsetzen klickt
+        frame_hyst = hauptfenster.frames["hysterese"]
+        
+        if value_radio_klick.get() == 0:
+
+            frame_hyst = hauptfenster.frames["hysterese"]
+
+            if hasattr(frame_hyst, "live"):
+                print("NaN wird angehängt")
+                print("Länge vorher:", len(frame_hyst.live["H"]))
+
+                frame_hyst.live["H"].append(np.nan)
+                frame_hyst.live["B"].append(np.nan)
+
+                print("Letzte H-Werte:", frame_hyst.live["H"][-5:])
+                print("Länge nachher:", len(frame_hyst.live["H"]))
+
+        #Flag setzen
         set_fortsetzen_modus(True)
 
-        # Messung starten (start_messung prüft fortsetzen_modus)
+        #Messung starten (start_messung prüft fortsetzen_modus)
         start_messung()
 
-        # Plot (wie beim normalen Start)
+        #Plot (wie beim normalen Start)
         start_plot_nach_auswahl(value_radio_klick, hauptfenster)
 
-        # Zustand aktualisieren
+        #Zustand aktualisieren
         hauptfenster.state["messung_laeuft"] = True
 
         #Led
@@ -1684,6 +1717,10 @@ def datei_laden(hauptfenster,pfad):
     #bereits Offset korrigiert wird ein eingestellter Offset nicht mehr berücksichtigt
     #ist die Messung mit keinem Offset durchgeführt worden wird dieser bei der
     #Darstellung berücksichtigt
+    if ext in [".cfg", ".dat"]:
+        b = uy * b_scale
+
+
     if ext == ".csv":
 
         print("Offset aus Datei:", offset)

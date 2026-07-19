@@ -27,7 +27,7 @@ data_queue = queue.Queue()
 
 #Parameter der Messung 
 
-fs = 1000           #Sample per seconds
+fs = 2000           #Sample per seconds
 sc = 10             #Zeit 
 R = 1               #Ohm, Wert des Shunt-Widerstands
 t_index = 0         #Zeitindex für alle Messungen (in Samples)
@@ -208,6 +208,15 @@ def csv_append_rows(pfad,daten):
         writer = csv.writer(file, delimiter=";")
         writer.writerows(daten)
 
+def csv_nan_trennzeile(pfad):
+    """
+    Fügt eine Trennzeile in die CSV-Datei ein.
+    Diese markiert eine unterbrochene und später fortgesetzte Messung.
+    """
+
+    with open(pfad, mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file, delimiter=";")
+        writer.writerow([np.nan, np.nan, np.nan])
 
 def csv_initialisieren():
 
@@ -368,6 +377,9 @@ def start_messung():
         if aktuelle_csv_datei is None:
             #Sicherheit falls noch keine CSV-Datei erstellt wurde.
             aktuelle_csv_datei = csv_initialisieren()
+
+        #sorgt für die Trennung der Messung beim fortsetzen
+        csv_nan_trennzeile(aktuelle_csv_datei)
 
     #Verbindungstest: Gerät kurz öffnen und anschließend wieder schließen.
     #Die eigentliche Messung öffnet das Gerät später in sample_update().
