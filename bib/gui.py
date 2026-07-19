@@ -39,6 +39,252 @@ from .functions_ad3 import start_messung, stop_messung, data_queue,update_offset
 from .functions_ad3 import set_fortsetzen_modus, sample_rate, get_offset
 from .functions_ad3 import set_csv_ordner, index_csv, get_messung_index, reset_messung_index
 
+
+#FESTE OBJEKTDATEN FÜR DIE PERMEABILITÄTSMESSUNG
+#Flächen in m² eintragen:
+FLAECHE_OBJEKT_1 = 225e-6
+FLAECHE_OBJEKT_2 = 290e-6
+
+
+def get_objekt_flaeche(objekt):
+
+    """Gibt die Querschnittsfläche des ausgewählten Objekts in m^2 zurück."""
+
+    if objekt == 1:
+        flaeche = FLAECHE_OBJEKT_1
+
+    elif objekt == 2:
+        flaeche = FLAECHE_OBJEKT_2
+
+    else:
+        raise ValueError("Bitte Objekt 1 oder Objekt 2 auswählen.")
+
+    if flaeche <= 0:
+        raise ValueError(
+            f"Die Fläche für Objekt {objekt} wurde noch nicht gültig eingetragen."
+        )
+    
+    return flaeche
+
+
+def berechne_permeabilitaets_faktor(hauptfenster, h_hat):
+
+    """
+    Berechnet den Skalierungsfaktor für die differentielle relative
+    Permeabilität bei einem symmetrischen dreieckförmigen
+    Magnetisierungsstrom.
+
+    Es gilt:
+        mu_r_diff = Uy / (mu0 * A * N * 4 * H_hat * f)
+
+    Die Frequenz wird im Popup in mHz eingegeben und intern in Hz gespeichert.
+
+    Args:
+        hauptfenster (Hauptfenster):
+            Enthält Messobjekt, Frequenz und Windungszahl.
+
+        h_hat (float):
+            Scheitelwert der magnetischen Feldstärke in A/m.
+
+    Returns:
+        float:
+            Skalierungsfaktor von Uy in V auf mu_r_diff.
+    """
+
+    objekt = hauptfenster.state.get("objekt")
+    frequenz_hz = hauptfenster.state.get("frequenz")
+    windungszahl = hauptfenster.state.get("windungszahl")
+
+    if objekt is None:
+        raise ValueError("Bitte ein Messobjekt auswählen.")
+    
+    if frequenz_hz is None or frequenz_hz <= 0:
+        raise ValueError("Bitte eine gültige Frequenz eingeben.")
+    
+    if windungszahl is None or windungszahl <= 0:
+        raise ValueError("Bitte eine gültige Windungszahl eingeben.")
+    
+    if h_hat is None or not np.isfinite(h_hat) or h_hat <= 0:
+        raise ValueError(
+            "Der Scheitelwert der magnetischen Feldstärke konnte "
+            "nicht bestimmt werden."
+        )
+
+    flaeche = get_objekt_flaeche(objekt)
+    mu0 = 4 * np.pi * 1e-7
+
+    return 1.0 / (
+        mu0
+        * flaeche
+        * windungszahl
+        * 4.0
+        * h_hat
+        * frequenz_hz
+    )
+
+
+def messparameter_popup(hauptfenster):
+
+    """Fragt Objekt, Frequenz in mHz und Windungszahl für Permeabilität ab."""
+
+    popup = tk.Toplevel(hauptfenster)
+    popup.title("Messparameter Permeabilität")
+    popup.geometry("470x330")
+    popup.configure(bg="#e4e7ec")
+    popup.transient(hauptfenster)
+    popup.grab_set()
+    popup.resizable(False, False)
+
+    erfolgreich = {"wert": False}
+
+    objekt_var = tk.IntVar(
+        value=hauptfenster.state.get("objekt")
+        if hauptfenster.state.get("objekt") in (1, 2)
+        else 1
+    )
+
+    gespeicherte_frequenz = hauptfenster.state.get("frequenz")
+    frequenz_var = tk.StringVar(
+        value=f"{gespeicherte_frequenz * 1000:g}"
+        if gespeicherte_frequenz is not None
+        else ""
+    )
+
+    gespeicherte_windungszahl = hauptfenster.state.get("windungszahl")
+    windungszahl_var = tk.StringVar(
+        value=str(gespeicherte_windungszahl)
+        if gespeicherte_windungszahl is not None
+        else ""
+    )
+
+    frame = tk.LabelFrame(
+        popup,
+        text="Parameter eingeben",
+        relief="ridge",
+        bd=6,
+        padx=15,
+        pady=15,
+        background="#f5f7fa",
+        font=("Arial", 10, "bold")
+    )
+    frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+    tk.Label(frame, text="Messobjekt:").grid(
+        row=0, column=0, sticky="w", padx=5, pady=8
+    )
+
+    objekt_frame = tk.Frame(frame, bg="#f5f7fa")
+    objekt_frame.grid(row=0, column=1, sticky="w", padx=5, pady=8)
+
+    tk.Radiobutton(
+        objekt_frame, text="Objekt 1", variable=objekt_var, value=1,
+        background="#f5f7fa", selectcolor="#f5f7fa"
+    ).pack(side="left", padx=(0, 15))
+
+    tk.Radiobutton(
+        objekt_frame, text="Objekt 2", variable=objekt_var, value=2,
+        background="#f5f7fa", selectcolor="#f5f7fa"
+    ).pack(side="left")
+
+    tk.Label(frame, text="Frequenz [mHz]:").grid(
+        row=1, column=0, sticky="w", padx=5, pady=10
+    )
+    frequenz_entry = tk.Entry(
+        frame, textvariable=frequenz_var, width=16, bd=2, relief="solid"
+    )
+    frequenz_entry.grid(row=1, column=1, sticky="w", padx=5, pady=10)
+
+    tk.Label(frame, text="Windungszahl:").grid(
+        row=2, column=0, sticky="w", padx=5, pady=10
+    )
+    windungszahl_entry = tk.Entry(
+        frame, textvariable=windungszahl_var, width=16, bd=2, relief="solid"
+    )
+    windungszahl_entry.grid(row=2, column=1, sticky="w", padx=5, pady=10)
+
+    def uebernehmen():
+
+        try:
+            frequenz_mhz = float(
+                frequenz_var.get().replace(",", ".").strip()
+            )
+
+        except ValueError:
+            messagebox.showerror(
+                "Ungültige Frequenz",
+                "Bitte eine gültige Frequenz in mHz eingeben.",
+                parent=popup
+            )
+            frequenz_entry.focus_set()
+            return
+
+        try:
+            windungszahl = int(windungszahl_var.get().strip())
+            
+        except ValueError:
+            messagebox.showerror(
+                "Ungültige Windungszahl",
+                "Bitte eine ganze Windungszahl eingeben.",
+                parent=popup
+            )
+            windungszahl_entry.focus_set()
+            return
+
+        if frequenz_mhz <= 0:
+            messagebox.showerror(
+                "Ungültige Frequenz",
+                "Die Frequenz muss größer als 0 mHz sein.",
+                parent=popup
+            )
+            return
+
+        if windungszahl <= 0:
+            messagebox.showerror(
+                "Ungültige Windungszahl",
+                "Die Windungszahl muss größer als 0 sein.",
+                parent=popup
+            )
+            return
+
+        hauptfenster.state["objekt"] = objekt_var.get()
+        hauptfenster.state["frequenz"] = frequenz_mhz / 1000.0
+        hauptfenster.state["windungszahl"] = windungszahl
+
+        try:
+            get_objekt_flaeche(objekt_var.get())
+        except ValueError as fehler:
+            messagebox.showerror(
+                "Fehlende Objektdaten", str(fehler), parent=popup
+            )
+            return
+
+        erfolgreich["wert"] = True
+        popup.destroy()
+
+    def abbrechen():
+        popup.destroy()
+
+    button_frame = tk.Frame(frame, bg="#f5f7fa")
+    button_frame.grid(
+        row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(15, 5)
+    )
+
+    create_button(
+        button_frame, "Übernehmen", uebernehmen, primary=True
+    ).pack(side="left", padx=(0, 10))
+    create_button(
+        button_frame, "Abbrechen", abbrechen, primary=False
+    ).pack(side="left")
+
+    popup.bind("<Return>", lambda event: uebernehmen())
+    popup.bind("<Escape>", lambda event: abbrechen())
+    popup.protocol("WM_DELETE_WINDOW", abbrechen)
+    frequenz_entry.focus_set()
+    hauptfenster.wait_window(popup)
+
+    return erfolgreich["wert"]
+
+
 def create_button(fenster, text, command=None, primary=False):
 
     """
@@ -274,7 +520,7 @@ def clear_live_plots(hauptfenster):
     if hasattr(frame_permea, "live"):
         live_p = frame_permea.live
         live_p["H"].clear()
-        live_p["B"].clear()
+        live_p["Uy"].clear()
         live_p["line_mu"].set_data([], [])
         ax = live_p["ax"]
         ax.relim()
@@ -711,7 +957,7 @@ def permeabilitaet_live_plot(hauptfenster):
     ax = fig.add_subplot(111)
     #ax.set_title("Hysterese")
     ax.set_xlabel("H [A/m]")
-    ax.set_ylabel(r"differentielle Permeabilität $\mu_diff$")
+    ax.set_ylabel(r"differentielle relative Permeabilität $\mu_{r,\mathrm{diff}}$ [-]")
     ax.set_facecolor("#ffffff")
     ax.grid(True, linestyle=":", color="#d0d0d0", alpha=0.7)
 
@@ -742,8 +988,8 @@ def permeabilitaet_live_plot(hauptfenster):
         "ax": ax,
         "canvas": canvas,
         "line_mu": line_mu,
-        "H": [],            # Spannung_x
-        "B": []             # Spannung_y
+        "H": [],            # magnetische Feldstärke H
+        "Uy": []            # induzierte Spannung Uy
     }
 
     
@@ -753,21 +999,33 @@ def permeabilitaet_live_plot(hauptfenster):
             return
 
         H_vals = frame_perm.live["H"]
-        B_vals = frame_perm.live["B"]
+        Uy_vals = frame_perm.live["Uy"]
 
-        if len(H_vals) < 3 or len(B_vals) < 3:
+        if len(H_vals) < 3 or len(Uy_vals) < 3:
             return
 
-        H_arr = np.asarray(H_vals)
-        B_arr = np.asarray(B_vals)
+        H_arr = np.asarray(H_vals, dtype=float)
+        Uy_arr = np.asarray(Uy_vals, dtype=float)
 
-        mu0 = 4 * np.pi * 1e-7
-        dH = np.gradient(H_arr)
-        dB = np.gradient(B_arr)
+        gueltige_h_werte = H_arr[np.isfinite(H_arr)]
+        if gueltige_h_werte.size == 0:
+            return
 
-        with np.errstate(divide="ignore", invalid="ignore"):
-            mu_r = dB / dH / mu0
-            mu_r[~np.isfinite(mu_r)] = np.nan
+        h_hat = np.max(np.abs(gueltige_h_werte))
+
+        try:
+            mu_faktor = berechne_permeabilitaets_faktor(
+                hauptfenster,
+                h_hat
+            )
+        except ValueError:
+            return
+
+        mu_r = Uy_arr * mu_faktor
+        mu_r[~np.isfinite(mu_r)] = np.nan
+
+        if event.xdata is None:
+            return
 
         h_cursor = event.xdata
         idx = int(np.nanargmin(np.abs(H_arr - h_cursor)))
@@ -928,22 +1186,25 @@ def update_data(hauptfenster):
             drained += 1
 
             if live_hyst is not None or live_perm is not None:
-                h_scale = hauptfenster.state["scale_H"]
-                b_scale = hauptfenster.state["scale_B"]
+                h_scale = hauptfenster.state.get("scale_H")
 
-                if h_scale is None or b_scale is None:
-                    continue  #noch nicht gesetzt überspringen
-                
+                if h_scale is None:
+                    continue
+
                 H = x * h_scale
-                B = y * b_scale
 
                 if live_hyst is not None:
-                    live_hyst["H"].append(H)
-                    live_hyst["B"].append(B)
+                    b_scale_hyst = hauptfenster.state.get("scale_B")
+                    if b_scale_hyst is not None:
+                        live_hyst["H"].append(H)
+                        live_hyst["B"].append(y * b_scale_hyst)
 
                 if live_perm is not None:
+                    # Bei der Permeabilitätsmessung ohne Integrator wird
+                    # die induzierte Spannung Uy direkt zur Berechnung von
+                    # mu_r,diff verwendet.
                     live_perm["H"].append(H)
-                    live_perm["B"].append(B)
+                    live_perm["Uy"].append(y)
 
     except queue.Empty:
         pass
@@ -988,21 +1249,33 @@ def update_data(hauptfenster):
 
         #Permeabilitätsplot
         if live_perm is not None and len(live_perm["H"]) > 2:
-            H_arr = np.asarray(live_perm["H"])
-            B_arr = np.asarray(live_perm["B"])
+            H_arr = np.asarray(live_perm["H"], dtype=float)
+            Uy_arr = np.asarray(live_perm["Uy"], dtype=float)
 
-            mu0 = 4 * np.pi * 1e-7
-            dH = np.gradient(H_arr)
-            dB = np.gradient(B_arr)
+            gueltige_h_werte = H_arr[np.isfinite(H_arr)]
 
-            with np.errstate(divide="ignore", invalid="ignore"):
-                mu_r = dB / dH / mu0
-                mu_r[~np.isfinite(mu_r)] = np.nan  # NaN/Inf raus
+            if gueltige_h_werte.size > 0:
+                h_hat = np.max(np.abs(gueltige_h_werte))
 
-            live_perm["line_mu"].set_data(H_arr[::schritt],mu_r[::schritt])
-            live_perm["ax"].relim()
-            live_perm["ax"].autoscale_view()
-            live_perm["canvas"].draw_idle()
+                try:
+                    mu_faktor = berechne_permeabilitaets_faktor(
+                        hauptfenster,
+                        h_hat
+                    )
+                except ValueError:
+                    mu_faktor = None
+
+                if mu_faktor is not None:
+                    mu_r = Uy_arr * mu_faktor
+                    mu_r[~np.isfinite(mu_r)] = np.nan
+
+                    live_perm["line_mu"].set_data(
+                        H_arr[::schritt],
+                        mu_r[::schritt]
+                    )
+                    live_perm["ax"].relim()
+                    live_perm["ax"].autoscale_view()
+                    live_perm["canvas"].draw_idle()
 
     hauptfenster.after(100, update_data, hauptfenster)    
 
@@ -1056,6 +1329,10 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
 
         if not hauptfenster.state["messung_laeuft"]:
             #Messung STARTEN
+
+            if value_radio_klick.get() == 1:
+                if not messparameter_popup(hauptfenster):
+                    return
 
             #Mit jeder neuen Messung muss das Interface entleert werden
             index_csv()
@@ -1612,7 +1889,7 @@ def hyst_perm_auswahl(frame_hyst_perm,hauptfenster):
 
     return value_radio
 
-def datei_laden(hauptfenster,pfad):
+def datei_laden(hauptfenster, pfad, value):
 
     """
     Diese Funktion ermöglicht es die gemessenen Daten darzustellen. 
@@ -1698,47 +1975,48 @@ def datei_laden(hauptfenster,pfad):
         return None
             
        
-    #Berechnen mit den Skalierungsfaktoren und Offset
+    #Skalierungsfaktor für H wird immer benötigt
     h_scale = hauptfenster.state.get("scale_H")
-    b_scale = hauptfenster.state.get("scale_B")
-    
-    if h_scale is None or b_scale is None:
-        
-        #Warnung wenn keine Skalierungsfaktoren eingeben und gespeichert wurden
+
+    if h_scale is None:
         messagebox.showerror(
-            "Fehlende Skalierungsfaktoren",
-            "Bitte zuerst gültige Skalierungsfaktoren eingeben."
+            "Fehlender Skalierungsfaktor",
+            "Bitte zuerst einen gültigen Skalierungsfaktor für H eingeben."
         )
         return None
 
+    if value == 0:
+        b_scale = hauptfenster.state.get("scale_B")
+        if b_scale is None:
+            messagebox.showerror(
+                "Fehlender Skalierungsfaktor",
+                "Bitte zuerst einen gültigen Skalierungsfaktor für B eingeben."
+            )
+            return None
+
     h = ux * h_scale
 
-    #Diese if else ist entscheident für das Datei laden, ist die Datei
-    #bereits Offset korrigiert wird ein eingestellter Offset nicht mehr berücksichtigt
-    #ist die Messung mit keinem Offset durchgeführt worden wird dieser bei der
-    #Darstellung berücksichtigt
+    #Offsetbehandlung für Uy: Wenn der Offset bereits in der CSV-Datei
+    #berücksichtigt wurde, darf er nicht ein zweites Mal abgezogen werden.
     if ext in [".cfg", ".dat"]:
-        b = uy * b_scale
+        uy_korrigiert = uy
 
-
-    if ext == ".csv":
-
+    else:
         print("Offset aus Datei:", offset)
 
         if offset != 0:
-            #Die CSV-Datei wurde bereits mit einem Offset korrigiert
-            #print("Offset wurde bereits berücksichtigt")
-            b = uy * b_scale
-
+            uy_korrigiert = uy
         else:
-            #Aktuell im Programm eingestellten Offset abrufen
             eingestellter_offset = get_offset()
+            uy_korrigiert = uy - eingestellter_offset
 
-            #print("Aktuell eingestellter Offset:", eingestellter_offset)
+    #Hysterese: Uy wird mit dem B-Skalierungsfaktor in B umgerechnet.
+    if value == 0:
+        b = uy_korrigiert * b_scale
+        return h, b
 
-            b = (uy - eingestellter_offset) * b_scale
-
-    return h,b
+    #Permeabilität: Uy wird direkt gemäß der Laborformel skaliert.
+    return h, uy_korrigiert
 
 
 def plotten_kurven(value,hauptfenster,pfade):
@@ -1766,28 +2044,45 @@ def plotten_kurven(value,hauptfenster,pfade):
     #um die Pfade sowie die Skalierungsfaktoren zu erhalten
     for pfad in pfade:
         
-        result = datei_laden(hauptfenster, pfad)
+        result = datei_laden(hauptfenster, pfad, value)
 
         #Sicherheit überprüfen was angekommen ist
         if result is None:
             continue
 
-        H, B = result
+        H, y_werte = result
         label = os.path.splitext(os.path.basename(pfad))[0]
 
 
-        #Mittels Unterscheidung auswählen ob Permeabilität oder Hysterese 
+        #Mittels Unterscheidung auswählen ob Permeabilität oder Hysterese
         if value == 0:
+            B = y_werte
             plt.plot(H, B, label=label)
 
         elif value == 1:
-            mu0 = 4 * np.pi * 1e-7
-            dH = np.gradient(H)
-            dB = np.gradient(B)
+            Uy = y_werte
+            gueltige_h_werte = H[np.isfinite(H)]
 
-            with np.errstate(divide="ignore", invalid="ignore"):
-                mu_r = dB / dH / mu0
-                mu_r[~np.isfinite(mu_r)] = np.nan
+            if gueltige_h_werte.size == 0:
+                continue
+
+            h_hat = np.max(np.abs(gueltige_h_werte))
+
+            try:
+                mu_faktor = berechne_permeabilitaets_faktor(
+                    hauptfenster,
+                    h_hat
+                )
+            except ValueError as fehler:
+                messagebox.showerror(
+                    "Fehlende Messparameter",
+                    str(fehler)
+                )
+                plt.close()
+                return
+
+            mu_r = Uy * mu_faktor
+            mu_r[~np.isfinite(mu_r)] = np.nan
 
             plt.plot(H, mu_r, label=label)
 
@@ -1814,110 +2109,81 @@ def plotten_kurven(value,hauptfenster,pfade):
 
 def daten_laden(hauptfenster):
 
-    """
-    Durch diese Funktion ist es möglich Messdaten zu laden und diese darzustellen.
-    Achtung Skalierungsfaktoren und die verschiedenen Messungen berücksichtigt 
-    werden. Das heißt Skalierungsfaktoren überprüfen und dann Auswahl welche 
-    Messung dargestellt werden soll. Erzeugen der Radiobutton um zu Überprüfen, 
-    welche Messung dargestellt werden soll. Das bedeutet Messung Hysterese oder
-    Permeabilität. Es erscheint ein Pop up Fenster für die Auswahl.
+    """Auswahl und Laden von Hysterese- oder Permeabilitätsdaten."""
 
-    Args:
-        hauptfenster (Hauptfenster):
-            Um den Status von bestimmten Variablen zu erhalten
-    """
-
-    h = hauptfenster.state.get("scale_H")
-    b = hauptfenster.state.get("scale_B")
-
-    
-
-    if h is None or b is None:
+    if hauptfenster.state.get("scale_H") is None:
         messagebox.showerror(
-                            "Fehlende Skalierungsfaktoren",
-                            "Bitte zuerst die Skalierungsfaktoren eingeben."
-                            )
+            "Fehlender Skalierungsfaktor",
+            "Bitte zuerst den Skalierungsfaktor für H eingeben."
+        )
         return
-
-    #müssen für die Radiobutton ein neues Fenster erzeugen
 
     radio_button_fenster = tk.Toplevel(hauptfenster)
     radio_button_fenster.title("Welche Messung soll dargestellt werden?")
     radio_button_fenster.geometry("600x400")
     radio_button_fenster.configure(bg="#e4e7ec")
+    radio_button_fenster.transient(hauptfenster)
+    radio_button_fenster.grab_set()
 
-    #Variable für Radiobutton zuordnen
     auswahl_radio = tk.IntVar(value=0)
 
-    #Erzeugen Radiobutton
-    hysterese_frequenzen_radio = tk.Radiobutton(radio_button_fenster,
-                                                text="Hysterese",
-                                                variable = auswahl_radio, value= 0,
-                                                background="#e4e7ec",
-                                                selectcolor="#e4e7ec",
-                                                font=("Arial",10,"bold"))
-    hysterese_frequenzen_radio.pack(anchor="w", padx=20, pady=5)
+    tk.Radiobutton(
+        radio_button_fenster,
+        text="Hysterese",
+        variable=auswahl_radio,
+        value=0,
+        background="#e4e7ec",
+        selectcolor="#e4e7ec",
+        font=("Arial", 10, "bold")
+    ).pack(anchor="w", padx=20, pady=5)
 
-    """
-    hysterese_neukurve_radio = tk.Radiobutton(radio_button_fenster,
-                                                text="Hysterese Entmagnetisierung",
-                                                variable = auswahl_radio, value= 1,
-                                                background="#e4e7ec",
-                                                selectcolor="#e4e7ec",
-                                                font=("Arial",10,"bold"))
-    hysterese_neukurve_radio.pack(anchor="w", padx=20, pady=5)
-
-    hysterese_entmagnet_radio = tk.Radiobutton(radio_button_fenster,
-                                                text="Hysterese Neukurve",
-                                                variable = auswahl_radio, value= 2,
-                                                background="#e4e7ec",
-                                                selectcolor="#e4e7ec",
-                                                font=("Arial",10,"bold"))
-    hysterese_entmagnet_radio .pack(anchor="w", padx=20, pady=5)
-    """
-    
-    hysterese_permeabilitaet_radio = tk.Radiobutton(radio_button_fenster,
-                                                text="Permeabilität",
-                                                variable = auswahl_radio, value= 1,
-                                                background="#e4e7ec",
-                                                selectcolor="#e4e7ec",
-                                                font=("Arial",10,"bold"))
-    hysterese_permeabilitaet_radio.pack(anchor="w", padx=20, pady=5)
-
-
-    #Datei pfad beliebig auswählen
-    pfade = filedialog.askopenfilenames(
-        parent=hauptfenster,
-        title="Messdatei auswählen",
-        filetypes=(
-            ("Messdateien", "*.csv *.dat *.cfg"),
-            ("Alle Dateien", "*.*"),))
-
-    
-    if not pfade:
-        messagebox.showerror("Fehlender Dateipfad",
-                                "Es wurde keine Messdatei ausgewählt."
-                                )
-        return 
+    tk.Radiobutton(
+        radio_button_fenster,
+        text="Permeabilität",
+        variable=auswahl_radio,
+        value=1,
+        background="#e4e7ec",
+        selectcolor="#e4e7ec",
+        font=("Arial", 10, "bold")
+    ).pack(anchor="w", padx=20, pady=5)
 
     def on_weiter():
         value = auswahl_radio.get()
+
+        if value == 0:
+            if hauptfenster.state.get("scale_B") is None:
+                messagebox.showerror(
+                    "Fehlender Skalierungsfaktor",
+                    "Bitte zuerst den Skalierungsfaktor für B eingeben.",
+                    parent=radio_button_fenster
+                )
+                return
+        else:
+            if not messparameter_popup(hauptfenster):
+                return
+
+        pfade = filedialog.askopenfilenames(
+            parent=radio_button_fenster,
+            title="Messdatei auswählen",
+            filetypes=(
+                ("Messdateien", "*.csv *.dat *.cfg"),
+                ("Alle Dateien", "*.*"),
+            )
+        )
+
+        if not pfade:
+            return
+
         radio_button_fenster.destroy()
-        plotten_kurven(value,hauptfenster,pfade)
+        plotten_kurven(value, hauptfenster, pfade)
 
-
-
-    #Man braucht noch eine weiter Button nach der Eingabe 
-    weiter_button = create_button(
+    create_button(
         radio_button_fenster,
         text="Weiter",
         command=on_weiter,
-        primary=False,
-    )
-    weiter_button.pack(anchor="w", padx=20, pady=5)
-    
+        primary=False
+    ).pack(anchor="w", padx=20, pady=15)
 
-    
 
 def start_plot_nach_auswahl(value_radio_klick,hauptfenster):
 
@@ -2360,7 +2626,10 @@ class Hauptfenster(tk.Tk):
         #Zustands-Variablen der GUI
         self.state = {
             "scale_H": None,
-            "scale_B": None,
+             "scale_B": None,
+            "objekt": None,
+            "frequenz": None,      # intern in Hz
+            "windungszahl": None,
             "messung_laeuft": False,
             "cursor_H_var": None,
             "cursor_B_var": None,
