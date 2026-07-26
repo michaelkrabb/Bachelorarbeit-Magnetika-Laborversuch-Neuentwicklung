@@ -139,14 +139,15 @@ def save_scale(entry_x, entry_y,hauptfenster):
     
     """
 
-
-
+    #
     try:
 
+        #speichert die Skalierungsfaktoren in die jeweilige Variable
         h = float(entry_x.get().replace(",", "."))
         b = float(entry_y.get().replace(",", "."))
 
     except ValueError:
+        #wenn keine gültige Zahl eingegeben wird erscheint diese Meldung
         messagebox.showerror("Eingabefehler", "Bitte gültige Zahlen eingeben.")
         return
 
@@ -247,18 +248,23 @@ def clear_live_plots(hauptfenster):
 
     """
 
+    #Frames und die Zuweisung des Hauptfensters
     frame_signal = hauptfenster.frames["signal"]
     frame_hysterese = hauptfenster.frames["hysterese"]
     frame_permea = hauptfenster.frames["permeabilität"]
     
-    #zurücksetzen Singale
+    #zurücksetzen Signale
     if hasattr(frame_signal, "live"):       #wenn der Frame ein Attribut hat
 
         #Live-Daten zurücksetzen
         live = frame_signal.live
+
+        #löscht die Daten bzw. entfernt die vorhandene Dartstellung im Live-Plot
         live["ts"].clear()
         live["ux"].clear()
         live["uy"].clear()
+
+        #zeigt Daten an in diesem Fall leer
         live["line_x"].set_data([], [])
         live["line_y"].set_data([], [])
 
@@ -270,6 +276,8 @@ def clear_live_plots(hauptfenster):
     
     #zurücksetzen hysterese
     if hasattr(frame_hysterese, "live"):
+
+        #selbe Aufgabe nur für Hysterese live Plot
         live_h = frame_hysterese.live
         live_h["H"].clear()
         live_h["B"].clear()
@@ -282,6 +290,8 @@ def clear_live_plots(hauptfenster):
 
     #zurücksetzen permeabilität
     if hasattr(frame_permea, "live"):
+
+        #selbe Aufgabe nur für Permeabilität live Plot
         live_p = frame_permea.live
         live_p["H"].clear()
         live_p["Uy"].clear()
@@ -316,8 +326,10 @@ def zoom_funktion(frame):
 
     """
 
+    #Achse und Frame 
     ax = frame["ax"]
     canvas = frame["canvas"]
+
     #hier könnten man einstellen wie schnell man zoomen möchte
     zoom_faktor = 1.2                   
     status_maus = {"druecken": None}
@@ -325,6 +337,7 @@ def zoom_funktion(frame):
     #Scrollfunktion mittels Mausrad
     def on_scroll(event):
 
+        #wenn man nicht im Frame mit dem Mauszeiger ist wird diese if verwendet
         if event.inaxes is not ax:
             return
 
@@ -347,6 +360,7 @@ def zoom_funktion(frame):
         new_width = (x_max - x_min) * scale
         new_height = (y_max - y_min) * scale
 
+        #setzt die x und y Grenze fest
         ax.set_xlim([xdata - new_width / 2, xdata + new_width / 2])
         ax.set_ylim([ydata - new_height / 2, ydata + new_height / 2])
 
@@ -364,9 +378,11 @@ def zoom_funktion(frame):
         if event.xdata is None or event.ydata is None:
             return
         
-
+        #die Minimale Grenze 
         x_min, x_max = ax.get_xlim()
         y_min, y_max = ax.get_ylim()
+
+        #Status des Mauszeigers
         status_maus["druecken"] = (event.xdata, event.ydata, (x_min, x_max), (y_min, y_max))    
 
     #funktionen damit das verschieben wieder beendet ist also bei Maustaste loslassen
@@ -816,8 +832,6 @@ def permeabilitaet_live_plot(hauptfenster):
     #Zoom per Mausrad aktivieren
     zoom_funktion(frame_perm.live)
 
-    
-
     return frame_perm   
 
 
@@ -1025,8 +1039,9 @@ def update_data(hauptfenster):
                 #Bei hohen Abtastraten nur den zuletzt aufgenommenen
                 #Bereich im Live-Plot darstellen.
                 live_hyst["line_hb"].set_data(H_arr[-5000:], B_arr[-5000:])
+
             else:
-                # Bei kleinen Abtastraten vollständige Kurve darstellen.
+                #Bei kleinen Abtastraten vollständige Kurve darstellen.
                 live_hyst["line_hb"].set_data(H_arr, B_arr)
                         
             live_hyst["ax"].relim() 
@@ -1035,6 +1050,7 @@ def update_data(hauptfenster):
 
         #Permeabilitätsplot
         if live_perm is not None and len(live_perm["H"]) > 2:
+
             H_arr = np.asarray(live_perm["H"], dtype=float)
             Uy_arr = np.asarray(live_perm["Uy"], dtype=float)
 
@@ -1223,6 +1239,7 @@ def close_hauptfenster(frame_messung,hauptfenster):
 
     """
 
+    #Funktion für das Haupfenster, damit vor dem beenden die Messung angehalten wird
     def programm_beenden():
         stop_messung()
         hauptfenster.destroy()
@@ -1258,11 +1275,8 @@ def messung_pausieren(frame_messung,hauptfenster,messung_fort_button):
         messung_fort_button (tk.Button):
             Ist für den Messung fortsetzen Button, nur bei Pausierung möglich
 
-
-
-
-
     """ 
+
     def on_pause():
 
         """
@@ -1396,9 +1410,13 @@ def messung_fortsetzen(frame_messung,hauptfenster,value_radio_klick):
         if led_var is not None:
             led_var.set(0)
 
+        #Status der Variable
         status_var = hauptfenster.state.get("status_var")
+
+        #Status des Messbuttons erhalten
         button_toggle = hauptfenster.state.get("button_toggle")
 
+        #Prüfe welche bedingung ausgeführt wird
         if status_var is not None:
             status_var.set("Messung läuft… (fortgesetzt)")
 
@@ -1551,10 +1569,13 @@ def container_left(hauptfenster):
     #Anzeige der aktuellen Messung die Anzahl wird angezeigt
     messung_var = tk.StringVar(value="00")
 
+    #Die Reset anzeige kann für eine neue Gruppe oder aus anderen Gründen
+    #rückgesetzt werden, somit werden die Datein wieder neu nummeriert
     def reset_index_anzeige():
         reset_messung_index()
         messung_var.set("00")
 
+    #Labels für die Beschriftung
     tk.Label(
         frame_messung_anzeige,
         text="Messung:",
@@ -1853,26 +1874,32 @@ def plotdaten_glaetten(H, B, fenster=11, polynomgrad=2):
             B_plot (numpy.ndarray):
                 Geglättete magnetische Flussdichte.
     """
-
+    #Falls H noch kein Numpy Array ist und die Werte müssen den float Typ haben
     H = np.asarray(H, dtype=float)
     B = np.asarray(B, dtype=float)
 
+    #Kopieren der Daten
     H_plot = H.copy()
     B_plot = B.copy()
 
+    #Prüfen ob H oder B gültige Werte sind
     gueltig = np.isfinite(H) & np.isfinite(B)
 
+    #Überlagerung überprüfen
     wechsel = np.diff(
         np.concatenate(([False], gueltig, [False])).astype(int)
     )
 
+    #Index wird gesucht für Anfang und Ende
     starts = np.where(wechsel == 1)[0]
     ends = np.where(wechsel == -1)[0]
 
+    #Schleifen beginn, verbindet Anfangs- mit Endwert
     for start, ende in zip(starts, ends):
 
         laenge = ende - start
 
+        #Für die Glättung der Kurve
         if laenge <= polynomgrad + 2:
             continue
 
@@ -1883,7 +1910,8 @@ def plotdaten_glaetten(H, B, fenster=11, polynomgrad=2):
 
         if aktuelles_fenster <= polynomgrad:
             continue
-
+        
+        #Filter Funktion starten aus pthon Bibliothek
         H_plot[start:ende] = savgol_filter(
             H[start:ende],
             window_length=aktuelles_fenster,
@@ -2009,6 +2037,7 @@ def daten_laden(hauptfenster):
         )
         return
 
+    #Radio Button für Daten laden erzeugen
     radio_button_fenster = tk.Toplevel(hauptfenster)
     radio_button_fenster.title("Welche Messung soll dargestellt werden?")
     radio_button_fenster.geometry("600x400")
@@ -2016,9 +2045,11 @@ def daten_laden(hauptfenster):
     radio_button_fenster.transient(hauptfenster)
     radio_button_fenster.grab_set()
 
+    #Auswahl value zuweisen
     auswahl_radio = tk.IntVar(value=0)
     glaetten_var = tk.BooleanVar(value=False)
 
+    #Konfiguration des Buttons
     tk.Radiobutton(
         radio_button_fenster,
         text="Hysterese",
@@ -2051,7 +2082,9 @@ def daten_laden(hauptfenster):
     def on_weiter():
         value = auswahl_radio.get()
 
+        #If Bedingung welche mittels Wert prüft welchen Radiobutton man verwendet hat
         if value == 0:
+            #erzeugt eine Fehlermeldung wenn die Skalierungsfaktoren nicht eingegeben sind
             if hauptfenster.state.get("scale_B") is None:
                 messagebox.showerror(
                     "Fehlender Skalierungsfaktor",
@@ -2059,10 +2092,12 @@ def daten_laden(hauptfenster):
                     parent=radio_button_fenster
                 )
                 return
+            
         else:
             if not messparameter_popup(hauptfenster):
                 return
 
+        #öffnet den Pfad und man wählt die Messdateien aus
         pfade = filedialog.askopenfilenames(
             parent=radio_button_fenster,
             title="Messdatei auswählen",
@@ -2072,6 +2107,7 @@ def daten_laden(hauptfenster):
             )
         )
 
+        #kein gültiger Pfad 
         if not pfade:
             return
 
@@ -2080,6 +2116,7 @@ def daten_laden(hauptfenster):
         #Funktionsaufruf
         plotten_kurven(value, hauptfenster, pfade, glaetten=glaetten_var.get())
 
+    #Button erzeugen für weiter um den Plot zu erhalten
     create_button(
         radio_button_fenster,
         text="Weiter",
@@ -2108,12 +2145,14 @@ def start_plot_nach_auswahl(value_radio_klick,hauptfenster):
     if value_radio_klick.get() == 0:
         print("Hysterese-Messung")
         frame_hyst = hauptfenster.frames["hysterese"]
+
         if not hasattr(frame_hyst, "live"):
             hysterese_live_plot(hauptfenster)
             
     else:
         print("Permeabilitäts-Messung")
         frame_perm = hauptfenster.frames["permeabilität"]
+
         if not hasattr(frame_perm, "live"):
             permeabilitaet_live_plot(hauptfenster)
 
@@ -2275,6 +2314,7 @@ def signal_bereich(frame_signal, hauptfenster):
         sie für den Signal-Live-Plot.
         """
 
+        #unter und oberer Grenze erhalten
         try:
             unten = float(
                 entry_unten.get().replace(",", ".").strip()
@@ -2284,6 +2324,7 @@ def signal_bereich(frame_signal, hauptfenster):
                 entry_oben.get().replace(",", ".").strip()
             )
 
+        #keine Grenze erfolgt eine Fehlermeldung
         except ValueError:
             messagebox.showerror(
                 "Ungültige Eingabe",
@@ -2291,7 +2332,7 @@ def signal_bereich(frame_signal, hauptfenster):
             )
             return
 
-        # Untere Grenze muss kleiner als obere Grenze sein
+        #Untere Grenze muss kleiner als obere Grenze sein
         if unten >= oben:
             messagebox.showerror(
                 "Ungültiger Wertebereich",
@@ -2299,21 +2340,21 @@ def signal_bereich(frame_signal, hauptfenster):
             )
             return
 
-        # Werte im Zustand des Hauptfensters speichern
+        #Werte im Zustand des Hauptfensters speichern
         hauptfenster.state["signal_y_unten"] = unten
         hauptfenster.state["signal_y_oben"] = oben
 
-        # Zugriff auf den Signal-Live-Plot
+        #Zugriff auf den Signal-Live-Plot
         frame_live_signal = hauptfenster.frames["signal"]
 
         if hasattr(frame_live_signal, "live"):
 
             live = frame_live_signal.live
 
-            # Neue Grenzen für die y-Achse setzen
+            #Neue Grenzen für die y-Achse setzen
             live["ax"].set_ylim(unten, oben)
 
-            # Plot neu zeichnen
+            #Plot neu zeichnen
             live["canvas"].draw_idle()
 
         messagebox.showinfo(
@@ -2321,7 +2362,7 @@ def signal_bereich(frame_signal, hauptfenster):
             f"Signalbereich auf {unten:g} V bis {oben:g} V gesetzt."
         )
 
-    #Erzeugen des Buttons fpr die Speicherung der neuen Grenzen
+    #Erzeugen des Buttons für die Speicherung der neuen Grenzen
     button_signalbereich = create_button(
         frame_signal,
         text="Signalbereich übernehmen",
@@ -2667,10 +2708,12 @@ def berechne_permeabilitaets_faktor(hauptfenster, h_hat):
             Skalierungsfaktor von Uy in V auf mu_r_diff.
     """
 
+    #State des Objekts, Frequenz und Windungszuahl
     objekt = hauptfenster.state.get("objekt")
     frequenz_hz = hauptfenster.state.get("frequenz")
     windungszahl = hauptfenster.state.get("windungszahl")
 
+    #Überprüfung für die drei Variablen ob richtig eingeben wurde
     if objekt is None:
         raise ValueError("Bitte ein Messobjekt auswählen.")
     
@@ -2686,9 +2729,11 @@ def berechne_permeabilitaets_faktor(hauptfenster, h_hat):
             "nicht bestimmt werden."
         )
 
+    #erhalten Fläche für das jeweilige Objekt
     flaeche = get_objekt_flaeche(objekt)
     mu0 = 4 * np.pi * 1e-7
 
+    #gibt den berechneten Wert zurück
     return 1.0 / (
         mu0
         * flaeche
@@ -2701,8 +2746,28 @@ def berechne_permeabilitaets_faktor(hauptfenster, h_hat):
 
 def messparameter_popup(hauptfenster):
 
-    """Fragt Objekt, Frequenz in mHz und Windungszahl für Permeabilität ab."""
+    """
+    Öffnet ein Pop-up-Fenster zur Eingabe der Messparameter für die
+    Permeabilitätsmessung.
 
+    Es können das Messobjekt, die Frequenz in mHz sowie die Windungszahl
+    eingegeben werden. Vor dem Speichern werden die Eingaben auf gültige
+    Werte überprüft. Nach erfolgreicher Validierung werden die Parameter
+    im Zustandsdictionary (`state`) des Hauptfensters gespeichert.
+
+    Args:
+        hauptfenster (tk.Tk | tk.Toplevel):
+            Hauptfenster der Anwendung. Enthält das Zustandsdictionary
+            (`state`), in dem die Messparameter gespeichert werden.
+
+    Returns:
+        bool:
+            True, wenn die Eingaben erfolgreich übernommen wurden.
+            False, wenn das Fenster abgebrochen oder ohne Übernahme
+            geschlossen wurde.
+    """
+
+    #erzeugen des Popup fenster für dei eingabe bei der Permeabilität
     popup = tk.Toplevel(hauptfenster)
     popup.title("Messparameter Permeabilität")
     popup.geometry("470x330")
@@ -2711,14 +2776,17 @@ def messparameter_popup(hauptfenster):
     popup.grab_set()
     popup.resizable(False, False)
 
+    #wenn die werte richitg eingeben werden
     erfolgreich = {"wert": False}
 
+    #Objekt auswahl
     objekt_var = tk.IntVar(
         value=hauptfenster.state.get("objekt")
         if hauptfenster.state.get("objekt") in (1, 2)
         else 1
     )
 
+    #frequenz erhalten
     gespeicherte_frequenz = hauptfenster.state.get("frequenz")
     frequenz_var = tk.StringVar(
         value=f"{gespeicherte_frequenz * 1000:g}"
@@ -2726,6 +2794,7 @@ def messparameter_popup(hauptfenster):
         else ""
     )
 
+    #Windugnszahl erhalten
     gespeicherte_windungszahl = hauptfenster.state.get("windungszahl")
     windungszahl_var = tk.StringVar(
         value=str(gespeicherte_windungszahl)
@@ -2733,6 +2802,7 @@ def messparameter_popup(hauptfenster):
         else ""
     )
 
+    #Frame für die Eereiche und Beschriftungen
     frame = tk.LabelFrame(
         popup,
         text="Parameter eingeben",
@@ -2745,13 +2815,16 @@ def messparameter_popup(hauptfenster):
     )
     frame.pack(fill="both", expand=True, padx=20, pady=20)
 
+    #label für die Beschriftung
     tk.Label(frame, text="Messobjekt:").grid(
         row=0, column=0, sticky="w", padx=5, pady=8
     )
 
+    #Objekt Frame erzeugen
     objekt_frame = tk.Frame(frame, bg="#f5f7fa")
     objekt_frame.grid(row=0, column=1, sticky="w", padx=5, pady=8)
 
+    #Radiobutton erzeugen und dem Frame zuordnen für Obejkt 1 und 2
     tk.Radiobutton(
         objekt_frame, text="Objekt 1", variable=objekt_var, value=1,
         background="#f5f7fa", selectcolor="#f5f7fa"
@@ -2765,6 +2838,8 @@ def messparameter_popup(hauptfenster):
     tk.Label(frame, text="Frequenz [mHz]:").grid(
         row=1, column=0, sticky="w", padx=5, pady=10
     )
+
+    #Frequenz eingabe in mHz
     frequenz_entry = tk.Entry(
         frame, textvariable=frequenz_var, width=16, bd=2, relief="solid"
     )
@@ -2773,6 +2848,8 @@ def messparameter_popup(hauptfenster):
     tk.Label(frame, text="Windungszahl:").grid(
         row=2, column=0, sticky="w", padx=5, pady=10
     )
+
+    #Windungszahl eingabe
     windungszahl_entry = tk.Entry(
         frame, textvariable=windungszahl_var, width=16, bd=2, relief="solid"
     )
@@ -2780,6 +2857,7 @@ def messparameter_popup(hauptfenster):
 
     def uebernehmen():
 
+        #Übernehmen der Werte
         try:
             frequenz_mhz = float(
                 frequenz_var.get().replace(",", ".").strip()
@@ -2806,6 +2884,7 @@ def messparameter_popup(hauptfenster):
             windungszahl_entry.focus_set()
             return
 
+        #für keine gültige Eingabe der Frequenz oder Windungszahl
         if frequenz_mhz <= 0:
             messagebox.showerror(
                 "Ungültige Frequenz",
@@ -2821,25 +2900,29 @@ def messparameter_popup(hauptfenster):
                 parent=popup
             )
             return
-
+        
+        #die States zuweisen
         hauptfenster.state["objekt"] = objekt_var.get()
         hauptfenster.state["frequenz"] = frequenz_mhz / 1000.0
         hauptfenster.state["windungszahl"] = windungszahl
 
         try:
             get_objekt_flaeche(objekt_var.get())
+
         except ValueError as fehler:
             messagebox.showerror(
                 "Fehlende Objektdaten", str(fehler), parent=popup
             )
             return
 
+        #Werte erfolgreich Fenster wird zerstört
         erfolgreich["wert"] = True
         popup.destroy()
 
     def abbrechen():
         popup.destroy()
 
+    #Frame und Button erzeugen
     button_frame = tk.Frame(frame, bg="#f5f7fa")
     button_frame.grid(
         row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(15, 5)
@@ -2883,7 +2966,7 @@ def vollstaendige_kurve_anzeigen(hauptfenster):
     frame_hyst = hauptfenster.frames["hysterese"]
     frame_perm = hauptfenster.frames["permeabilität"]
 
-    # Vollständigen Signalverlauf anzeigen
+    #Vollständigen Signalverlauf anzeigen
     if hasattr(frame_signal, "live"):
 
         live = frame_signal.live
@@ -2904,7 +2987,7 @@ def vollstaendige_kurve_anzeigen(hauptfenster):
                             hauptfenster.state.get("signal_y_oben", 6.0))
         live["canvas"].draw_idle()
 
-    # Vollständige Hysteresekurve anzeigen
+    #Vollständige Hysteresekurve anzeigen
     if hasattr(frame_hyst, "live"):
 
         live_hyst = frame_hyst.live
@@ -2918,7 +3001,7 @@ def vollstaendige_kurve_anzeigen(hauptfenster):
         live_hyst["ax"].autoscale_view()
         live_hyst["canvas"].draw_idle()
 
-    # Vollständige Permeabilitätskurve anzeigen
+    #Vollständige Permeabilitätskurve anzeigen
     if hasattr(frame_perm, "live"):
 
         live_perm = frame_perm.live

@@ -1,5 +1,5 @@
 numpy>=1.23,<2.0
+scipy>=1.10,<2.0
 matplotlib>=3.6,<3.9
 dwfpy==1.2.0
-engineering-notation==0.10.0
 tk-tools==0.16.0
