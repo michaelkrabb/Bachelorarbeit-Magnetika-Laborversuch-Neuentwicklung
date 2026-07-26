@@ -21,6 +21,7 @@ import threading                    #Thread für die Parallelisierung
 import dwfpy as dwf    
 from dwfpy.constants import AcquisitionMode
 
+
 #Globale Events für das Messprogramm
 run_event = threading.Event()
 data_queue = queue.Queue()
@@ -277,6 +278,7 @@ def device_verfügbar():
     try:
         list_geräte = list(dwf.Device.enumerate())
         return len(list_geräte)
+    
     except Exception as e:
         print("Keine Geräte gefunden:", e)
         return 0

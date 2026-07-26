@@ -34,6 +34,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
 
+#für eine geglättet Darstellung
+from scipy.signal import savgol_filter
+
 #gemeinsame Objekte aus functions_ad3.py holen:
 from .functions_ad3 import start_messung, stop_messung, data_queue,update_offset
 from .functions_ad3 import set_fortsetzen_modus, sample_rate, get_offset
@@ -45,244 +48,6 @@ from .functions_ad3 import set_csv_ordner, index_csv, get_messung_index, reset_m
 FLAECHE_OBJEKT_1 = 225e-6
 FLAECHE_OBJEKT_2 = 290e-6
 
-
-def get_objekt_flaeche(objekt):
-
-    """Gibt die Querschnittsfläche des ausgewählten Objekts in m^2 zurück."""
-
-    if objekt == 1:
-        flaeche = FLAECHE_OBJEKT_1
-
-    elif objekt == 2:
-        flaeche = FLAECHE_OBJEKT_2
-
-    else:
-        raise ValueError("Bitte Objekt 1 oder Objekt 2 auswählen.")
-
-    if flaeche <= 0:
-        raise ValueError(
-            f"Die Fläche für Objekt {objekt} wurde noch nicht gültig eingetragen."
-        )
-    
-    return flaeche
-
-
-def berechne_permeabilitaets_faktor(hauptfenster, h_hat):
-
-    """
-    Berechnet den Skalierungsfaktor für die differentielle relative
-    Permeabilität bei einem symmetrischen dreieckförmigen
-    Magnetisierungsstrom.
-
-    Es gilt:
-        mu_r_diff = Uy / (mu0 * A * N * 4 * H_hat * f)
-
-    Die Frequenz wird im Popup in mHz eingegeben und intern in Hz gespeichert.
-
-    Args:
-        hauptfenster (Hauptfenster):
-            Enthält Messobjekt, Frequenz und Windungszahl.
-
-        h_hat (float):
-            Scheitelwert der magnetischen Feldstärke in A/m.
-
-    Returns:
-        float:
-            Skalierungsfaktor von Uy in V auf mu_r_diff.
-    """
-
-    objekt = hauptfenster.state.get("objekt")
-    frequenz_hz = hauptfenster.state.get("frequenz")
-    windungszahl = hauptfenster.state.get("windungszahl")
-
-    if objekt is None:
-        raise ValueError("Bitte ein Messobjekt auswählen.")
-    
-    if frequenz_hz is None or frequenz_hz <= 0:
-        raise ValueError("Bitte eine gültige Frequenz eingeben.")
-    
-    if windungszahl is None or windungszahl <= 0:
-        raise ValueError("Bitte eine gültige Windungszahl eingeben.")
-    
-    if h_hat is None or not np.isfinite(h_hat) or h_hat <= 0:
-        raise ValueError(
-            "Der Scheitelwert der magnetischen Feldstärke konnte "
-            "nicht bestimmt werden."
-        )
-
-    flaeche = get_objekt_flaeche(objekt)
-    mu0 = 4 * np.pi * 1e-7
-
-    return 1.0 / (
-        mu0
-        * flaeche
-        * windungszahl
-        * 4.0
-        * h_hat
-        * frequenz_hz
-    )
-
-
-def messparameter_popup(hauptfenster):
-
-    """Fragt Objekt, Frequenz in mHz und Windungszahl für Permeabilität ab."""
-
-    popup = tk.Toplevel(hauptfenster)
-    popup.title("Messparameter Permeabilität")
-    popup.geometry("470x330")
-    popup.configure(bg="#e4e7ec")
-    popup.transient(hauptfenster)
-    popup.grab_set()
-    popup.resizable(False, False)
-
-    erfolgreich = {"wert": False}
-
-    objekt_var = tk.IntVar(
-        value=hauptfenster.state.get("objekt")
-        if hauptfenster.state.get("objekt") in (1, 2)
-        else 1
-    )
-
-    gespeicherte_frequenz = hauptfenster.state.get("frequenz")
-    frequenz_var = tk.StringVar(
-        value=f"{gespeicherte_frequenz * 1000:g}"
-        if gespeicherte_frequenz is not None
-        else ""
-    )
-
-    gespeicherte_windungszahl = hauptfenster.state.get("windungszahl")
-    windungszahl_var = tk.StringVar(
-        value=str(gespeicherte_windungszahl)
-        if gespeicherte_windungszahl is not None
-        else ""
-    )
-
-    frame = tk.LabelFrame(
-        popup,
-        text="Parameter eingeben",
-        relief="ridge",
-        bd=6,
-        padx=15,
-        pady=15,
-        background="#f5f7fa",
-        font=("Arial", 10, "bold")
-    )
-    frame.pack(fill="both", expand=True, padx=20, pady=20)
-
-    tk.Label(frame, text="Messobjekt:").grid(
-        row=0, column=0, sticky="w", padx=5, pady=8
-    )
-
-    objekt_frame = tk.Frame(frame, bg="#f5f7fa")
-    objekt_frame.grid(row=0, column=1, sticky="w", padx=5, pady=8)
-
-    tk.Radiobutton(
-        objekt_frame, text="Objekt 1", variable=objekt_var, value=1,
-        background="#f5f7fa", selectcolor="#f5f7fa"
-    ).pack(side="left", padx=(0, 15))
-
-    tk.Radiobutton(
-        objekt_frame, text="Objekt 2", variable=objekt_var, value=2,
-        background="#f5f7fa", selectcolor="#f5f7fa"
-    ).pack(side="left")
-
-    tk.Label(frame, text="Frequenz [mHz]:").grid(
-        row=1, column=0, sticky="w", padx=5, pady=10
-    )
-    frequenz_entry = tk.Entry(
-        frame, textvariable=frequenz_var, width=16, bd=2, relief="solid"
-    )
-    frequenz_entry.grid(row=1, column=1, sticky="w", padx=5, pady=10)
-
-    tk.Label(frame, text="Windungszahl:").grid(
-        row=2, column=0, sticky="w", padx=5, pady=10
-    )
-    windungszahl_entry = tk.Entry(
-        frame, textvariable=windungszahl_var, width=16, bd=2, relief="solid"
-    )
-    windungszahl_entry.grid(row=2, column=1, sticky="w", padx=5, pady=10)
-
-    def uebernehmen():
-
-        try:
-            frequenz_mhz = float(
-                frequenz_var.get().replace(",", ".").strip()
-            )
-
-        except ValueError:
-            messagebox.showerror(
-                "Ungültige Frequenz",
-                "Bitte eine gültige Frequenz in mHz eingeben.",
-                parent=popup
-            )
-            frequenz_entry.focus_set()
-            return
-
-        try:
-            windungszahl = int(windungszahl_var.get().strip())
-            
-        except ValueError:
-            messagebox.showerror(
-                "Ungültige Windungszahl",
-                "Bitte eine ganze Windungszahl eingeben.",
-                parent=popup
-            )
-            windungszahl_entry.focus_set()
-            return
-
-        if frequenz_mhz <= 0:
-            messagebox.showerror(
-                "Ungültige Frequenz",
-                "Die Frequenz muss größer als 0 mHz sein.",
-                parent=popup
-            )
-            return
-
-        if windungszahl <= 0:
-            messagebox.showerror(
-                "Ungültige Windungszahl",
-                "Die Windungszahl muss größer als 0 sein.",
-                parent=popup
-            )
-            return
-
-        hauptfenster.state["objekt"] = objekt_var.get()
-        hauptfenster.state["frequenz"] = frequenz_mhz / 1000.0
-        hauptfenster.state["windungszahl"] = windungszahl
-
-        try:
-            get_objekt_flaeche(objekt_var.get())
-        except ValueError as fehler:
-            messagebox.showerror(
-                "Fehlende Objektdaten", str(fehler), parent=popup
-            )
-            return
-
-        erfolgreich["wert"] = True
-        popup.destroy()
-
-    def abbrechen():
-        popup.destroy()
-
-    button_frame = tk.Frame(frame, bg="#f5f7fa")
-    button_frame.grid(
-        row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(15, 5)
-    )
-
-    create_button(
-        button_frame, "Übernehmen", uebernehmen, primary=True
-    ).pack(side="left", padx=(0, 10))
-    create_button(
-        button_frame, "Abbrechen", abbrechen, primary=False
-    ).pack(side="left")
-
-    popup.bind("<Return>", lambda event: uebernehmen())
-    popup.bind("<Escape>", lambda event: abbrechen())
-    popup.protocol("WM_DELETE_WINDOW", abbrechen)
-    frequenz_entry.focus_set()
-    hauptfenster.wait_window(popup)
-
-    return erfolgreich["wert"]
 
 
 def create_button(fenster, text, command=None, primary=False):
@@ -351,7 +116,6 @@ def create_button(fenster, text, command=None, primary=False):
         )
 
 
-#damit die Skalierungswerte nicht verloren gehen werte abspeichern
 def save_scale(entry_x, entry_y,hauptfenster):
 
     """
@@ -637,39 +401,41 @@ def zoom_funktion(frame):
     canvas.mpl_connect("motion_notify_event", on_move)
 
    
-def get_plot_schritt(hauptfenster):
-    
+def get_nachleuchten_aktiv(hauptfenster):
+
     """
-    Bei sehr hohen Abtastraten kann es dazu kommen beim Bewegen des GUI oder
-    allgemein aufgrund der großen Datenmenge das es zu Lags kommt. Im schlimmsten 
-    Fall zu Abstürzen des GUI. Damit nicht jeder Messeintrag bei großen Sample
-    Rates dargestellt wird verwendet man diese Funktion, welche die Anzahl
-    an dargestellten Werten im Live-Plot verringert. Diese Veränderung hat keinen
-    Einfluss auf die Datenmenge in der CSV-Datei dort werden immer noch alle
-    Einträge abgespeichert.
+    Prüft, ob für den Live-Plot der Nachleuchtmodus verwendet werden soll.
+
+    Der Nachleuchtmodus wird ab einer Abtastrate von 2000 S/s aktiviert,
+    um die grafische Darstellung während der laufenden Messung zu entlasten.
+    Bei kleineren Abtastraten wird die vollständige Messkurve dargestellt.
+
+    Die Funktion beeinflusst ausschließlich die Darstellung im Live-Plot.
+    Alle Messwerte werden weiterhin vollständig gespeichert.
 
     Args:
         hauptfenster (Hauptfenster):
-            Wird verwendet um die derzeit gespeicherte Sample rate aufzurufen
-    
+            Wird verwendet, um die aktuell eingestellte Abtastrate auszulesen.
+
     Returns:
-        int:
-            je nach Fallunterscheidung 200, 100, 50 oder 1
-            
+        bool:
+            True, wenn der Nachleuchtmodus verwendet werden soll,
+            andernfalls False.
     """
 
     #Um die Sample rate zu erhalten
     sample = hauptfenster.state.get("sample_rate", 2000)
 
-    #Fallunterscheidung für die verschiedenen Sample Rates
-    if sample >= 10000:
-        return 200
-    elif sample >= 5000:
-        return 100
-    elif sample >= 2000:
-        return 50
+    #Fallunterscheidung für Nachleuchten erst ab 2000 Samples aktiv
+    if sample >= 2000:
+        return True
+    
     else:
-        return 1
+        return False
+
+        
+    
+
 
 def signal_live_plot(hauptfenster):
 
@@ -702,18 +468,19 @@ def signal_live_plot(hauptfenster):
     fig.patch.set_facecolor("#f5f7fa")
     ax = fig.add_subplot(111)
     #Platz für Titel und Achsen
-    fig.subplots_adjust(top=0.98, bottom=0.32, left=0.08, right=0.92)
+    fig.subplots_adjust(top=0.98, bottom=0.32, left=0.08, right=0.98)
     #ax.set_title("Spannungen an den Messpunkten x und y")
     ax.set_xlabel("Zeit [s]", labelpad=2)
     ax.set_ylabel("Spannung [V]")
     ax.set_facecolor("#ffffff")
     ax.grid(True, linestyle=":", color="#d0d0d0", alpha=0.7)
+    ax.set_ylim(hauptfenster.state.get("signal_y_unten", -6.0),
+                hauptfenster.state.get("signal_y_oben", 6.0))
 
     #anlegen von Linien
     (line_x,) = ax.plot([], [], linewidth=1.2, label=r"$u_x$(t)")
     (line_y,) = ax.plot([], [], linewidth=1.2, label=r"$u_y$(t)")
-    fig.subplots_adjust(right=0.92)
-    ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5))
+    ax.legend(loc="upper right", fontsize=8, framealpha=0.9)
 
     #Reset Button um die Ansicht wieder auf die Ausgangslage zu blicken
     reset_button = tk.Button(
@@ -1211,20 +978,42 @@ def update_data(hauptfenster):
 
     if drained:
 
-        schritt = get_plot_schritt(hauptfenster)
+        nachleuchten = (get_nachleuchten_aktiv(hauptfenster)
+                        and hauptfenster.state.get("messung_laeuft", False)
+                    )
 
-        #optional Sichtfenster begrenzen
-        max_pts = 5000
+        #Für den Live-Plot immer nur die letzten 5 Sekunden darstellen
+        zeitfenster = 5.0
 
-        #Signalplot
-        if len(ts) > max_pts:
-            ts[:] = ts[-max_pts:]
-            ux[:] = ux[-max_pts:]
-            uy[:] = uy[-max_pts:]
+        if nachleuchten and len(ts) > 0:
 
-        live["line_x"].set_data(ts[::schritt], ux[::schritt])
-        live["line_y"].set_data(ts[::schritt], uy[::schritt])
-        live["ax"].relim(); live["ax"].autoscale_view()
+            t_max = ts[-1]
+            t_min = max(0.0, t_max - zeitfenster)
+
+            start = np.searchsorted(ts, t_min)
+
+            live["line_x"].set_data(ts[start:], ux[start:])
+            live["line_y"].set_data(ts[start:], uy[start:])
+
+        else:
+            live["line_x"].set_data(ts, ux)
+            live["line_y"].set_data(ts, uy)
+
+
+        
+        live["ax"].relim()
+
+        #immer nur die letzten 5 Sekunden anzeigen
+        zeitfenster = 5.0
+
+        if len(ts) > 0:
+            t_max = ts[-1]
+            t_min = max(0.0, t_max - zeitfenster)
+            live["ax"].set_xlim(t_min, t_max)
+
+        live["ax"].set_ylim(hauptfenster.state.get("signal_y_unten", -6.0),
+                            hauptfenster.state.get("signal_y_oben", 6.0))
+        
         live["canvas"].draw_idle()
 
         #Hystereseplot
@@ -1232,17 +1021,14 @@ def update_data(hauptfenster):
             H_arr = np.asarray(live_hyst["H"], dtype=float)
             B_arr = np.asarray(live_hyst["B"], dtype=float)
 
-            # Regulär reduzierte Indizes
-            indices = np.arange(0, len(H_arr), schritt)
-
-            # Positionen der NaN-Trennstellen
-            nan_indices = np.where(np.isnan(H_arr) | np.isnan(B_arr))[0]
-
-            # Beide Indexmengen zusammenführen und sortieren
-            indices = np.unique(np.concatenate((indices, nan_indices)))
-
-            live_hyst["line_hb"].set_data(H_arr[indices],B_arr[indices])
-            
+            if nachleuchten:
+                #Bei hohen Abtastraten nur den zuletzt aufgenommenen
+                #Bereich im Live-Plot darstellen.
+                live_hyst["line_hb"].set_data(H_arr[-5000:], B_arr[-5000:])
+            else:
+                # Bei kleinen Abtastraten vollständige Kurve darstellen.
+                live_hyst["line_hb"].set_data(H_arr, B_arr)
+                        
             live_hyst["ax"].relim() 
             live_hyst["ax"].autoscale_view()
             live_hyst["canvas"].draw_idle()
@@ -1269,10 +1055,11 @@ def update_data(hauptfenster):
                     mu_r = Uy_arr * mu_faktor
                     mu_r[~np.isfinite(mu_r)] = np.nan
 
-                    live_perm["line_mu"].set_data(
-                        H_arr[::schritt],
-                        mu_r[::schritt]
-                    )
+                    if nachleuchten:
+                        live_perm["line_mu"].set_data(H_arr[-5000:], mu_r[-5000:])
+                    else:
+                        live_perm["line_mu"].set_data(H_arr, mu_r)
+
                     live_perm["ax"].relim()
                     live_perm["ax"].autoscale_view()
                     live_perm["canvas"].draw_idle()
@@ -1357,11 +1144,15 @@ def mess_button(frame_messung,hauptfenster,value_radio_klick):
             )
             status_var.set("Messung läuft…")
             status_led.set(0)
+
         else:
             #Messung BEENDEN
             stop_messung()   #hier drin sollte run_event.clear() usw. stehen
 
             hauptfenster.state["messung_laeuft"] = False
+
+            #Vollständige Messkurve darstellen
+            vollstaendige_kurve_anzeigen(hauptfenster)
 
             #Button wird verändert
             button_toggle.config(
@@ -1482,12 +1273,14 @@ def messung_pausieren(frame_messung,hauptfenster,messung_fort_button):
         if not hauptfenster.state.get("messung_laeuft", False):
             return
 
-
         #stoppt die Messung
         stop_messung()
 
         #State setzen
         hauptfenster.state["messung_laeuft"] = False
+
+        #vollständige Messkurve anzeigen
+        vollstaendige_kurve_anzeigen(hauptfenster)
 
         #LED
         led_var = hauptfenster.state.get("led_var")
@@ -2018,8 +1811,94 @@ def datei_laden(hauptfenster, pfad, value):
     #Permeabilität: Uy wird direkt gemäß der Laborformel skaliert.
     return h, uy_korrigiert
 
+def plotdaten_glaetten(H, B, fenster=11, polynomgrad=2):
 
-def plotten_kurven(value,hauptfenster,pfade):
+    """
+    Glättet die geladenen Hysterese-Messdaten ausschließlich für die
+    grafische Darstellung. Dabei wird eine Kopie der eingelesenen
+    Messdaten erzeugt, sodass die ursprünglichen Rohdaten unverändert
+    erhalten bleiben.
+
+    Die Funktion berücksichtigt vorhandene NaN-Trennstellen zwischen
+    einzelnen Messabschnitten. Jeder zusammenhängende Messabschnitt
+    wird unabhängig voneinander mit einem Savitzky-Golay-Filter
+    geglättet. Dadurch bleiben Unterbrechungen der Messung erhalten
+    und es entstehen keine Verbindungslinien zwischen getrennten
+    Messabschnitten.
+
+    Die Glättung dient ausschließlich der optischen Verbesserung der
+    Darstellung beim Laden der Messdaten. Die ursprünglichen CSV-Dateien
+    sowie sämtliche Berechnungen bleiben unverändert.
+
+    Args:
+        H (numpy.ndarray):
+            Magnetische Feldstärke in A/m.
+
+        B (numpy.ndarray):
+            Magnetische Flussdichte in T.
+
+        fenster (int):
+            Fensterlänge des Savitzky-Golay-Filters.
+            Der Wert muss ungerade sein.
+
+        polynomgrad (int):
+            Grad des verwendeten Polynoms für den
+            Savitzky-Golay-Filter.
+
+    Returns:
+        tuple:
+            H_plot (numpy.ndarray):
+                Geglättete magnetische Feldstärke.
+
+            B_plot (numpy.ndarray):
+                Geglättete magnetische Flussdichte.
+    """
+
+    H = np.asarray(H, dtype=float)
+    B = np.asarray(B, dtype=float)
+
+    H_plot = H.copy()
+    B_plot = B.copy()
+
+    gueltig = np.isfinite(H) & np.isfinite(B)
+
+    wechsel = np.diff(
+        np.concatenate(([False], gueltig, [False])).astype(int)
+    )
+
+    starts = np.where(wechsel == 1)[0]
+    ends = np.where(wechsel == -1)[0]
+
+    for start, ende in zip(starts, ends):
+
+        laenge = ende - start
+
+        if laenge <= polynomgrad + 2:
+            continue
+
+        aktuelles_fenster = min(fenster, laenge)
+
+        if aktuelles_fenster % 2 == 0:
+            aktuelles_fenster -= 1
+
+        if aktuelles_fenster <= polynomgrad:
+            continue
+
+        H_plot[start:ende] = savgol_filter(
+            H[start:ende],
+            window_length=aktuelles_fenster,
+            polyorder=polynomgrad
+        )
+
+        B_plot[start:ende] = savgol_filter(
+            B[start:ende],
+            window_length=aktuelles_fenster,
+            polyorder=polynomgrad
+        )
+
+    return H_plot, B_plot
+
+def plotten_kurven(value, hauptfenster, pfade, glaetten=False):
 
     """
     Die geladenen Daten werden dargestellt. Die Plots werden immer mittels
@@ -2057,7 +1936,19 @@ def plotten_kurven(value,hauptfenster,pfade):
         #Mittels Unterscheidung auswählen ob Permeabilität oder Hysterese
         if value == 0:
             B = y_werte
-            plt.plot(H, B, label=label)
+
+            if glaetten:
+                H_plot, B_plot = plotdaten_glaetten(
+                    H,
+                    B,
+                    fenster=11,
+                    polynomgrad=2
+                )
+            else:
+                H_plot = H
+                B_plot = B
+
+            plt.plot(H_plot, B_plot, label=label)
 
         elif value == 1:
             Uy = y_werte
@@ -2126,6 +2017,7 @@ def daten_laden(hauptfenster):
     radio_button_fenster.grab_set()
 
     auswahl_radio = tk.IntVar(value=0)
+    glaetten_var = tk.BooleanVar(value=False)
 
     tk.Radiobutton(
         radio_button_fenster,
@@ -2146,6 +2038,15 @@ def daten_laden(hauptfenster):
         selectcolor="#e4e7ec",
         font=("Arial", 10, "bold")
     ).pack(anchor="w", padx=20, pady=5)
+
+    tk.Checkbutton(
+        radio_button_fenster,
+        text="Darstellung glätten",
+        variable=glaetten_var,
+        background="#e4e7ec",
+        selectcolor="#e4e7ec",
+        font=("Arial", 10)
+    ).pack(anchor="w", padx=20, pady=(15, 5))
 
     def on_weiter():
         value = auswahl_radio.get()
@@ -2175,7 +2076,9 @@ def daten_laden(hauptfenster):
             return
 
         radio_button_fenster.destroy()
-        plotten_kurven(value, hauptfenster, pfade)
+        
+        #Funktionsaufruf
+        plotten_kurven(value, hauptfenster, pfade, glaetten=glaetten_var.get())
 
     create_button(
         radio_button_fenster,
@@ -2242,6 +2145,7 @@ def eingabe_daten(fenster,hauptfenster):
     ein_container.grid_rowconfigure(0,weight = 1, uniform = "rows")
     ein_container.grid_rowconfigure(1,weight = 1, uniform = "rows")
     ein_container.grid_rowconfigure(2,weight = 1, uniform = "rows")
+    ein_container.grid_rowconfigure(3,weight = 1, uniform = "rows")
     ein_container.grid_columnconfigure(0, weight=0)
     
     #Frame für Sample rate
@@ -2261,6 +2165,12 @@ def eingabe_daten(fenster,hauptfenster):
                                     bd=6,padx=10,pady=10,background="#f5f7fa",
                                     font=("Arial", 10, "bold"))
     frame_daten_laden.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
+
+    #Frame Bereich Singal live Plot-Werte
+    frame_signal = tk.LabelFrame(ein_container, text="Signal-Live-Plot", relief="ridge",
+                                        bd=6,padx=10,pady=10,background="#f5f7fa",
+                                        font=("Arial", 10, "bold"))
+    frame_signal.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
     #Daten laden Button
     daten_laden_button = create_button(
@@ -2301,10 +2211,133 @@ def eingabe_daten(fenster,hauptfenster):
 
     sample_box.bind("<<ComboboxSelected>>", sample_change)
 
+    #Entrys für den Wertebreich Signal
+    signal_bereich(frame_signal, hauptfenster)
+
     #Eingabefeld Offset
     offset_eingabe(frame_offset)
     
-    
+def signal_bereich(frame_signal, hauptfenster):
+
+    """
+    Erzeugt Eingabefelder zur Einstellung der unteren und oberen
+    Darstellungsgrenze des Signal-Live-Plots.
+
+    Die eingestellten Grenzen beeinflussen ausschließlich die Anzeige
+    des Signalplots. Die aufgenommenen und gespeicherten Messdaten
+    werden dadurch nicht verändert.
+
+    Args:
+        frame_signal (tk.LabelFrame):
+            Frame für die Eingabe der Darstellungsgrenzen.
+
+        hauptfenster (Hauptfenster):
+            Hauptfenster zur Speicherung und Anwendung der Grenzen.
+    """
+
+    #Aktuell gespeicherte Werte holen
+    untere_grenze = hauptfenster.state.get("signal_y_unten", -6.0)
+    obere_grenze = hauptfenster.state.get("signal_y_oben", 6.0)
+
+
+    #Beschriftung untere Grenze
+    tk.Label(frame_signal, text="Untere Grenze [V]:", bg="#f5f7fa").grid(
+                                                            row=0, 
+                                                            column=0, 
+                                                            padx=5,
+                                                            pady=5, 
+                                                            sticky="w")
+
+    #Beschriftung obere Grenze
+    tk.Label(frame_signal, text="Obere Grenze [V]:", bg="#f5f7fa").grid(
+                                                            row=1, 
+                                                            column=0, 
+                                                            padx=5,
+                                                            pady=5, 
+                                                            sticky="w")
+
+    #Eingabefelder für den Bereich des Signal live Plots
+    entry_oben = tk.Entry(frame_signal, width=12, bd=2, relief="solid")
+    entry_oben.grid(row=1, column=1, padx=5, pady=5)
+
+    entry_oben.insert(0, str(obere_grenze))
+
+    entry_unten = tk.Entry(frame_signal, width=12, bd=2, relief="solid")
+    entry_unten.grid(row=0,column=1,padx=5,pady=5)
+
+    entry_unten.insert(0, str(untere_grenze))
+
+
+    def grenzen_uebernehmen():
+
+        """
+        Prüft die eingegebenen Darstellungsgrenzen und übernimmt
+        sie für den Signal-Live-Plot.
+        """
+
+        try:
+            unten = float(
+                entry_unten.get().replace(",", ".").strip()
+            )
+
+            oben = float(
+                entry_oben.get().replace(",", ".").strip()
+            )
+
+        except ValueError:
+            messagebox.showerror(
+                "Ungültige Eingabe",
+                "Bitte gültige Zahlen für die Darstellungsgrenzen eingeben."
+            )
+            return
+
+        # Untere Grenze muss kleiner als obere Grenze sein
+        if unten >= oben:
+            messagebox.showerror(
+                "Ungültiger Wertebereich",
+                "Die untere Grenze muss kleiner als die obere Grenze sein."
+            )
+            return
+
+        # Werte im Zustand des Hauptfensters speichern
+        hauptfenster.state["signal_y_unten"] = unten
+        hauptfenster.state["signal_y_oben"] = oben
+
+        # Zugriff auf den Signal-Live-Plot
+        frame_live_signal = hauptfenster.frames["signal"]
+
+        if hasattr(frame_live_signal, "live"):
+
+            live = frame_live_signal.live
+
+            # Neue Grenzen für die y-Achse setzen
+            live["ax"].set_ylim(unten, oben)
+
+            # Plot neu zeichnen
+            live["canvas"].draw_idle()
+
+        messagebox.showinfo(
+            "Signalbereich übernommen",
+            f"Signalbereich auf {unten:g} V bis {oben:g} V gesetzt."
+        )
+
+    #Erzeugen des Buttons fpr die Speicherung der neuen Grenzen
+    button_signalbereich = create_button(
+        frame_signal,
+        text="Signalbereich übernehmen",
+        command=grenzen_uebernehmen,
+        primary=False
+    )
+
+    button_signalbereich.grid(
+        row=2,
+        column=0,
+        columnspan=2,
+        padx=5,
+        pady=8
+    )
+
+  
 
 def fenster_einstellungen(hauptfenster):
 
@@ -2330,7 +2363,8 @@ def fenster_einstellungen(hauptfenster):
     ein_fenster.title("Erweiterte Einstellungen für das Messprogramm")
 
     #Größe
-    ein_fenster.geometry("600x400")
+    ein_fenster.geometry("360x600")
+    ein_fenster.resizable(False, False)
 
     #Hintergrundfarbe
     ein_fenster.configure(bg="#e4e7ec") #Hexcode für hellgrau 
@@ -2588,6 +2622,349 @@ def willkommensfenster(hauptfenster):
     
 
 
+def get_objekt_flaeche(objekt):
+
+    """Gibt die Querschnittsfläche des ausgewählten Objekts in m^2 zurück."""
+
+    if objekt == 1:
+        flaeche = FLAECHE_OBJEKT_1
+
+    elif objekt == 2:
+        flaeche = FLAECHE_OBJEKT_2
+
+    else:
+        raise ValueError("Bitte Objekt 1 oder Objekt 2 auswählen.")
+
+    if flaeche <= 0:
+        raise ValueError(
+            f"Die Fläche für Objekt {objekt} wurde noch nicht gültig eingetragen."
+        )
+    
+    return flaeche
+
+
+def berechne_permeabilitaets_faktor(hauptfenster, h_hat):
+
+    """
+    Berechnet den Skalierungsfaktor für die differentielle relative
+    Permeabilität bei einem symmetrischen dreieckförmigen
+    Magnetisierungsstrom.
+
+    Es gilt:
+        mu_r_diff = Uy / (mu0 * A * N * 4 * H_hat * f)
+
+    Die Frequenz wird im Popup in mHz eingegeben und intern in Hz gespeichert.
+
+    Args:
+        hauptfenster (Hauptfenster):
+            Enthält Messobjekt, Frequenz und Windungszahl.
+
+        h_hat (float):
+            Scheitelwert der magnetischen Feldstärke in A/m.
+
+    Returns:
+        float:
+            Skalierungsfaktor von Uy in V auf mu_r_diff.
+    """
+
+    objekt = hauptfenster.state.get("objekt")
+    frequenz_hz = hauptfenster.state.get("frequenz")
+    windungszahl = hauptfenster.state.get("windungszahl")
+
+    if objekt is None:
+        raise ValueError("Bitte ein Messobjekt auswählen.")
+    
+    if frequenz_hz is None or frequenz_hz <= 0:
+        raise ValueError("Bitte eine gültige Frequenz eingeben.")
+    
+    if windungszahl is None or windungszahl <= 0:
+        raise ValueError("Bitte eine gültige Windungszahl eingeben.")
+    
+    if h_hat is None or not np.isfinite(h_hat) or h_hat <= 0:
+        raise ValueError(
+            "Der Scheitelwert der magnetischen Feldstärke konnte "
+            "nicht bestimmt werden."
+        )
+
+    flaeche = get_objekt_flaeche(objekt)
+    mu0 = 4 * np.pi * 1e-7
+
+    return 1.0 / (
+        mu0
+        * flaeche
+        * windungszahl
+        * 4.0
+        * h_hat
+        * frequenz_hz
+    )
+
+
+def messparameter_popup(hauptfenster):
+
+    """Fragt Objekt, Frequenz in mHz und Windungszahl für Permeabilität ab."""
+
+    popup = tk.Toplevel(hauptfenster)
+    popup.title("Messparameter Permeabilität")
+    popup.geometry("470x330")
+    popup.configure(bg="#e4e7ec")
+    popup.transient(hauptfenster)
+    popup.grab_set()
+    popup.resizable(False, False)
+
+    erfolgreich = {"wert": False}
+
+    objekt_var = tk.IntVar(
+        value=hauptfenster.state.get("objekt")
+        if hauptfenster.state.get("objekt") in (1, 2)
+        else 1
+    )
+
+    gespeicherte_frequenz = hauptfenster.state.get("frequenz")
+    frequenz_var = tk.StringVar(
+        value=f"{gespeicherte_frequenz * 1000:g}"
+        if gespeicherte_frequenz is not None
+        else ""
+    )
+
+    gespeicherte_windungszahl = hauptfenster.state.get("windungszahl")
+    windungszahl_var = tk.StringVar(
+        value=str(gespeicherte_windungszahl)
+        if gespeicherte_windungszahl is not None
+        else ""
+    )
+
+    frame = tk.LabelFrame(
+        popup,
+        text="Parameter eingeben",
+        relief="ridge",
+        bd=6,
+        padx=15,
+        pady=15,
+        background="#f5f7fa",
+        font=("Arial", 10, "bold")
+    )
+    frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+    tk.Label(frame, text="Messobjekt:").grid(
+        row=0, column=0, sticky="w", padx=5, pady=8
+    )
+
+    objekt_frame = tk.Frame(frame, bg="#f5f7fa")
+    objekt_frame.grid(row=0, column=1, sticky="w", padx=5, pady=8)
+
+    tk.Radiobutton(
+        objekt_frame, text="Objekt 1", variable=objekt_var, value=1,
+        background="#f5f7fa", selectcolor="#f5f7fa"
+    ).pack(side="left", padx=(0, 15))
+
+    tk.Radiobutton(
+        objekt_frame, text="Objekt 2", variable=objekt_var, value=2,
+        background="#f5f7fa", selectcolor="#f5f7fa"
+    ).pack(side="left")
+
+    tk.Label(frame, text="Frequenz [mHz]:").grid(
+        row=1, column=0, sticky="w", padx=5, pady=10
+    )
+    frequenz_entry = tk.Entry(
+        frame, textvariable=frequenz_var, width=16, bd=2, relief="solid"
+    )
+    frequenz_entry.grid(row=1, column=1, sticky="w", padx=5, pady=10)
+
+    tk.Label(frame, text="Windungszahl:").grid(
+        row=2, column=0, sticky="w", padx=5, pady=10
+    )
+    windungszahl_entry = tk.Entry(
+        frame, textvariable=windungszahl_var, width=16, bd=2, relief="solid"
+    )
+    windungszahl_entry.grid(row=2, column=1, sticky="w", padx=5, pady=10)
+
+    def uebernehmen():
+
+        try:
+            frequenz_mhz = float(
+                frequenz_var.get().replace(",", ".").strip()
+            )
+
+        except ValueError:
+            messagebox.showerror(
+                "Ungültige Frequenz",
+                "Bitte eine gültige Frequenz in mHz eingeben.",
+                parent=popup
+            )
+            frequenz_entry.focus_set()
+            return
+
+        try:
+            windungszahl = int(windungszahl_var.get().strip())
+            
+        except ValueError:
+            messagebox.showerror(
+                "Ungültige Windungszahl",
+                "Bitte eine ganze Windungszahl eingeben.",
+                parent=popup
+            )
+            windungszahl_entry.focus_set()
+            return
+
+        if frequenz_mhz <= 0:
+            messagebox.showerror(
+                "Ungültige Frequenz",
+                "Die Frequenz muss größer als 0 mHz sein.",
+                parent=popup
+            )
+            return
+
+        if windungszahl <= 0:
+            messagebox.showerror(
+                "Ungültige Windungszahl",
+                "Die Windungszahl muss größer als 0 sein.",
+                parent=popup
+            )
+            return
+
+        hauptfenster.state["objekt"] = objekt_var.get()
+        hauptfenster.state["frequenz"] = frequenz_mhz / 1000.0
+        hauptfenster.state["windungszahl"] = windungszahl
+
+        try:
+            get_objekt_flaeche(objekt_var.get())
+        except ValueError as fehler:
+            messagebox.showerror(
+                "Fehlende Objektdaten", str(fehler), parent=popup
+            )
+            return
+
+        erfolgreich["wert"] = True
+        popup.destroy()
+
+    def abbrechen():
+        popup.destroy()
+
+    button_frame = tk.Frame(frame, bg="#f5f7fa")
+    button_frame.grid(
+        row=3, column=0, columnspan=2, sticky="w", padx=5, pady=(15, 5)
+    )
+
+    create_button(
+        button_frame, "Übernehmen", uebernehmen, primary=True
+    ).pack(side="left", padx=(0, 10))
+    create_button(
+        button_frame, "Abbrechen", abbrechen, primary=False
+    ).pack(side="left")
+
+    popup.bind("<Return>", lambda event: uebernehmen())
+    popup.bind("<Escape>", lambda event: abbrechen())
+    popup.protocol("WM_DELETE_WINDOW", abbrechen)
+    frequenz_entry.focus_set()
+    hauptfenster.wait_window(popup)
+
+    return erfolgreich["wert"]
+
+def vollstaendige_kurve_anzeigen(hauptfenster):
+
+    """
+    Stellt nach dem Beenden einer Messung sämtliche aufgenommenen
+    Messwerte in vollständiger Auflösung dar.
+
+    Während einer laufenden Messung werden bei hohen Abtastraten nur die
+    zuletzt aufgenommenen Messpunkte angezeigt. Die vollständigen Daten
+    bleiben jedoch in den jeweiligen Puffern gespeichert. Nach dem
+    Beenden der Messung werden diese vollständigen Daten erneut in den
+    Signal-, Hysterese- und Permeabilitätsplot übernommen.
+
+    Args:
+        hauptfenster (Hauptfenster):
+            Hauptfenster der grafischen Benutzeroberfläche. Über die
+            gespeicherten Frames wird auf die Live-Daten und Plots
+            zugegriffen.
+    """
+
+    frame_signal = hauptfenster.frames["signal"]
+    frame_hyst = hauptfenster.frames["hysterese"]
+    frame_perm = hauptfenster.frames["permeabilität"]
+
+    # Vollständigen Signalverlauf anzeigen
+    if hasattr(frame_signal, "live"):
+
+        live = frame_signal.live
+
+        live["line_x"].set_data(
+            live["ts"],
+            live["ux"]
+        )
+
+        live["line_y"].set_data(
+            live["ts"],
+            live["uy"]
+        )
+
+        live["ax"].relim()   
+        live["ax"].autoscale_view()
+        live["ax"].set_ylim(hauptfenster.state.get("signal_y_unten", -6.0),
+                            hauptfenster.state.get("signal_y_oben", 6.0))
+        live["canvas"].draw_idle()
+
+    # Vollständige Hysteresekurve anzeigen
+    if hasattr(frame_hyst, "live"):
+
+        live_hyst = frame_hyst.live
+
+        live_hyst["line_hb"].set_data(
+            live_hyst["H"],
+            live_hyst["B"]
+        )
+
+        live_hyst["ax"].relim()
+        live_hyst["ax"].autoscale_view()
+        live_hyst["canvas"].draw_idle()
+
+    # Vollständige Permeabilitätskurve anzeigen
+    if hasattr(frame_perm, "live"):
+
+        live_perm = frame_perm.live
+
+        if len(live_perm["H"]) > 2:
+
+            H_arr = np.asarray(
+                live_perm["H"],
+                dtype=float
+            )
+
+            Uy_arr = np.asarray(
+                live_perm["Uy"],
+                dtype=float
+            )
+
+            gueltige_h_werte = H_arr[np.isfinite(H_arr)]
+
+            if gueltige_h_werte.size > 0:
+
+                h_hat = np.max(
+                    np.abs(gueltige_h_werte)
+                )
+
+                try:
+                    mu_faktor = berechne_permeabilitaets_faktor(
+                        hauptfenster,
+                        h_hat
+                    )
+
+                except ValueError:
+                    mu_faktor = None
+
+                if mu_faktor is not None:
+
+                    mu_r = Uy_arr * mu_faktor
+                    mu_r[~np.isfinite(mu_r)] = np.nan
+
+                    live_perm["line_mu"].set_data(
+                        H_arr,
+                        mu_r
+                    )
+
+                    live_perm["ax"].relim()
+                    live_perm["ax"].autoscale_view()
+                    live_perm["canvas"].draw_idle()
 
 
 class Hauptfenster(tk.Tk):
@@ -2626,14 +3003,16 @@ class Hauptfenster(tk.Tk):
         #Zustands-Variablen der GUI
         self.state = {
             "scale_H": None,
-             "scale_B": None,
+            "scale_B": None,
             "objekt": None,
             "frequenz": None,      # intern in Hz
             "windungszahl": None,
             "messung_laeuft": False,
             "cursor_H_var": None,
             "cursor_B_var": None,
-            "sample_rate": 2000
+            "sample_rate": 2000,
+            "signal_y_unten": -6.0,
+            "signal_y_oben": 6.0
             }
         
 
