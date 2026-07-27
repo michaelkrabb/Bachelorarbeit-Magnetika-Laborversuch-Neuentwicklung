@@ -1813,7 +1813,8 @@ def datei_laden(hauptfenster, pfad, value):
     #Offsetbehandlung für Uy: Wenn der Offset bereits in der CSV-Datei
     #berücksichtigt wurde, darf er nicht ein zweites Mal abgezogen werden.
     if ext in [".cfg", ".dat"]:
-        uy_korrigiert = uy
+        eingestellter_offset = get_offset()
+        uy_korrigiert = uy - eingestellter_offset
 
     else:
         print("Offset aus Datei:", offset)
@@ -2181,11 +2182,11 @@ def eingabe_daten(fenster,hauptfenster):
     ein_container.pack()
 
     #Verhältnis der Reihen des Container
-    ein_container.grid_rowconfigure(0,weight = 1, uniform = "rows")
-    ein_container.grid_rowconfigure(1,weight = 1, uniform = "rows")
-    ein_container.grid_rowconfigure(2,weight = 1, uniform = "rows")
-    ein_container.grid_rowconfigure(3,weight = 1, uniform = "rows")
-    ein_container.grid_columnconfigure(0, weight=0)
+    ein_container.grid_rowconfigure(0, weight=1, uniform="rows")
+    ein_container.grid_rowconfigure(1, weight=1, uniform="rows")
+    ein_container.grid_columnconfigure(0, weight=1, uniform="columns")
+    ein_container.grid_columnconfigure(1, weight=1, uniform="columns")
+    ein_container.pack(fill="x", padx=10, pady=10)
     
     #Frame für Sample rate
     frame_sample = tk.LabelFrame(ein_container, text="Sample rate [S/s]", relief="ridge",
@@ -2197,19 +2198,19 @@ def eingabe_daten(fenster,hauptfenster):
     frame_offset = tk.LabelFrame(ein_container, text="UB-Offset", relief="ridge",
                                     bd=6,padx=10,pady=10,background="#f5f7fa",
                                     font=("Arial", 10, "bold"))
-    frame_offset.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+    frame_offset.grid(row=0, column=1, sticky="nsew", padx=10, pady=(0, 10))
 
     #Frame für Daten laden
     frame_daten_laden = tk.LabelFrame(ein_container, text="Daten laden", relief="ridge",
                                     bd=6,padx=10,pady=10,background="#f5f7fa",
                                     font=("Arial", 10, "bold"))
-    frame_daten_laden.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
+    frame_daten_laden.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
     #Frame Bereich Singal live Plot-Werte
     frame_signal = tk.LabelFrame(ein_container, text="Signal-Live-Plot", relief="ridge",
                                         bd=6,padx=10,pady=10,background="#f5f7fa",
                                         font=("Arial", 10, "bold"))
-    frame_signal.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
+    frame_signal.grid(row=1, column=1, sticky="nsew", padx=10, pady=(0, 10))
 
     #Daten laden Button
     daten_laden_button = create_button(
@@ -2404,7 +2405,8 @@ def fenster_einstellungen(hauptfenster):
     ein_fenster.title("Erweiterte Einstellungen für das Messprogramm")
 
     #Größe
-    ein_fenster.geometry("360x600")
+    #ein_fenster.geometry("360x600")
+    ein_fenster.geometry("600x360")
     ein_fenster.resizable(False, False)
 
     #Hintergrundfarbe
