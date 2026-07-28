@@ -3,3 +3,7 @@ scipy>=1.10,<2.0
 matplotlib>=3.6,<3.9
 dwfpy==1.2.0
 tk-tools==0.16.0
+
+#Für den Betrieb mit dem Analog Discovery 3 muss zusätzlich
+#Digilent WaveForms installiert werden:
+#https://cloud.digilent.com/myproducts/waveforms?pc=1&tab=2

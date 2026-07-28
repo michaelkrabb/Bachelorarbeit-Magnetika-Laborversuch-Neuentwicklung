@@ -1,4 +1,24 @@
-__pycache__/ 
-*.pyc 
-bib/__pycache__/ 
+#Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+#Unterordner
+bib/__pycache__/
+
+#Linux
+*~
+
+#Windows
+Thumbs.db
+Desktop.ini
+
+#VS Code
+.vscode/
+
+#PyCharm
+.idea/
+
+#KiCad
 DebugErc.log
