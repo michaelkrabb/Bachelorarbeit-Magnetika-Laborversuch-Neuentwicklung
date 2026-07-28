@@ -2297,12 +2297,12 @@ def signal_bereich(frame_signal, hauptfenster):
                                                             sticky="w")
 
     #Eingabefelder für den Bereich des Signal live Plots
-    entry_oben = tk.Entry(frame_signal, width=12, bd=2, relief="solid")
+    entry_oben = tk.Entry(frame_signal, width=8, bd=2, relief="solid")
     entry_oben.grid(row=1, column=1, padx=5, pady=5)
 
     entry_oben.insert(0, str(obere_grenze))
 
-    entry_unten = tk.Entry(frame_signal, width=12, bd=2, relief="solid")
+    entry_unten = tk.Entry(frame_signal, width=8, bd=2, relief="solid")
     entry_unten.grid(row=0,column=1,padx=5,pady=5)
 
     entry_unten.insert(0, str(untere_grenze))
