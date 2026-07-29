@@ -2056,23 +2056,23 @@ def plotten_kurven(value, hauptfenster, pfade, glaetten=False):
 
             plt.plot(H, mu_r, label=label)
 
-    plt.xlabel("H [A/m]",fontsize=14)
+    plt.xlabel("H [A/m]",fontsize=16)
 
     if value == 0:
 
-        plt.ylabel("B [T]",fontsize=14)
+        plt.ylabel("B [T]",fontsize=16)
         plt.title("Hysteresekurven")
 
     else:
 
-        plt.ylabel(r"$\mu_{r,\mathrm{diff}}$ [1]",fontsize=14)
+        plt.ylabel(r"$\mu_{r,\mathrm{diff}}$ [1]",fontsize=16)
         plt.title("Differentielle Permeabilität")
 
-    plt.xticks(fontsize=10)
-    plt.yticks(fontsize=10)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
     plt.subplots_adjust(right=0.75)
     plt.grid(True)
-    plt.legend(loc="center left",bbox_to_anchor=(1.02, 0.5),fontsize=14)
+    plt.legend(loc="center left",bbox_to_anchor=(1.02, 0.5),fontsize=16)
     plt.show()
 
 
