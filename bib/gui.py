@@ -38,8 +38,8 @@ from tkinter import ttk, messagebox, filedialog
 from scipy.signal import savgol_filter
 
 #gemeinsame Objekte aus functions_ad3.py holen:
-from .functions_ad3 import start_messung, stop_messung, data_queue,update_offset
-from .functions_ad3 import set_fortsetzen_modus, sample_rate, get_offset
+from .functions_ad3 import start_messung, stop_messung, data_queue,update_offset,get_offset_x
+from .functions_ad3 import set_fortsetzen_modus, sample_rate, get_offset,update_offset_x
 from .functions_ad3 import set_csv_ordner, index_csv, get_messung_index, reset_messung_index
 
 
@@ -1731,42 +1731,92 @@ def datei_laden(hauptfenster, pfad, value):
             Skalierungsfaktor für die magnetische Flussdichte B
     """
 
-    #Datei laden
     ext = os.path.splitext(pfad)[1].lower()
 
-    #prüfen auf Dateityp das ist für die alten Dateien
-    if ext in [".cfg",".dat"]:
+    #Kennzeichnet, ob die Daten bereits beim Speichern korrigiert wurden
+    offsets_bereits_korrigiert = False
 
-        #Skalierung berücksichtigen, das heißt Reihe 2 und Reihe 3 Daten 
-        #müssen skaliert werden
+    if ext in [".cfg", ".dat"]:
 
         data_l = np.loadtxt(pfad, dtype=str)
-        data_l = np.char.replace(data_l, ",",".")
-
+        data_l = np.char.replace(data_l, ",", ".")
         data = data_l.astype(float)
 
-        #3 Spalten extrahieren
-        t  = data[:, 0]
+        t = data[:, 0]
         ux = data[:, 1]
         uy = data[:, 2]
 
-    #für die neuen Dateien
     elif ext == ".csv":
-        
-        #Die ersten beiden Zeilen der Kopfzeile lesen
+
         with open(pfad, "r", encoding="utf-8") as file:
             offset_zeile = file.readline().strip()
 
-        #Offset auslesen
-        offset = float(
-            offset_zeile.split("=")[1]
-            .replace("V", "")
-            .strip()
+        #Neue CSV-Kopfzeile:
+        #Ux-Offset = ... V; Uy-Offset = ... V
+        if "Ux-Offset" in offset_zeile and "Uy-Offset" in offset_zeile:
+
+            try:
+                teile = offset_zeile.split(";")
+
+                ux_offset_datei = float(
+                    teile[0]
+                    .split("=")[1]
+                    .replace("V", "")
+                    .strip()
+                )
+
+                uy_offset_datei = float(
+                    teile[1]
+                    .split("=")[1]
+                    .replace("V", "")
+                    .strip()
+                )
+
+                #print("Ux-Offset aus Datei:", ux_offset_datei)
+                #print("Uy-Offset aus Datei:", uy_offset_datei)
+
+                #Die Spannungswerte wurden bereits vor dem Speichern korrigiert
+                offsets_bereits_korrigiert = True
+
+            except (IndexError, ValueError):
+                messagebox.showerror(
+                    "Fehlerhafte Offsetzeile",
+                    "Die Offsetinformationen der CSV-Datei konnten "
+                    "nicht gelesen werden."
+                )
+                return None
+
+        #Alte CSV-Kopfzeile:
+        #Offset = ... V
+        elif "Offset" in offset_zeile:
+
+            try:
+                alter_uy_offset = float(
+                    offset_zeile
+                    .split("=")[1]
+                    .replace("V", "")
+                    .strip()
+                )
+
+                #print("Alter Uy-Offset aus Datei:", alter_uy_offset)
+
+                #Bei alten CSV-Dateien war nur Uy bereits korrigiert.
+                #Ux muss beim Laden noch korrigiert werden.
+                offsets_bereits_korrigiert = "nur_uy"
+
+            except (IndexError, ValueError):
+                messagebox.showerror(
+                    "Fehlerhafte Offsetzeile",
+                    "Der Offset der CSV-Datei konnte nicht gelesen werden."
+                )
+                return None
+
+        data = np.genfromtxt(
+            pfad,
+            delimiter=";",
+            skip_header=2
         )
 
-        data = np.genfromtxt(pfad,delimiter=";",skip_header=2)
-
-        #Prüfen ob Datei leer ist
         if data.size == 0:
             messagebox.showerror(
                 "Fehlerhafte Datei",
@@ -1774,22 +1824,21 @@ def datei_laden(hauptfenster, pfad, value):
             )
             return None
 
-        #3 Spalten extrahieren
-        t  = data[:, 0]
+        #Bei nur einer Messzeile zweidimensional machen
+        if data.ndim == 1:
+            data = data.reshape(1, -1)
+
+        t = data[:, 0]
         ux = data[:, 1]
         uy = data[:, 2]
 
-        
-
-    #Falls kein gültiger Dateityp verwendet wird kommt es zu dieser Fehlermeldung
-    else: 
-        messagebox.showerror("Ungültiger Dateityp",
-                            "Bitte verwenden Sie eine .cfg-, .dat- oder .csv-Datei."
-                            )
+    else:
+        messagebox.showerror(
+            "Ungültiger Dateityp",
+            "Bitte verwenden Sie eine .cfg-, .dat- oder .csv-Datei."
+        )
         return None
-            
-       
-    #Skalierungsfaktor für H wird immer benötigt
+
     h_scale = hauptfenster.state.get("scale_H")
 
     if h_scale is None:
@@ -1801,6 +1850,7 @@ def datei_laden(hauptfenster, pfad, value):
 
     if value == 0:
         b_scale = hauptfenster.state.get("scale_B")
+
         if b_scale is None:
             messagebox.showerror(
                 "Fehlender Skalierungsfaktor",
@@ -1808,29 +1858,27 @@ def datei_laden(hauptfenster, pfad, value):
             )
             return None
 
-    h = ux * h_scale
+    #Neue CSV: Ux und Uy sind bereits korrigiert
+    if offsets_bereits_korrigiert is True:
+        ux_korrigiert = ux
+        uy_korrigiert = uy
 
-    #Offsetbehandlung für Uy: Wenn der Offset bereits in der CSV-Datei
-    #berücksichtigt wurde, darf er nicht ein zweites Mal abgezogen werden.
-    if ext in [".cfg", ".dat"]:
-        eingestellter_offset = get_offset()
-        uy_korrigiert = uy - eingestellter_offset
+    #Alte CSV: Uy wurde bereits korrigiert, Ux noch nicht
+    elif offsets_bereits_korrigiert == "nur_uy":
+        ux_korrigiert = ux - get_offset_x()
+        uy_korrigiert = uy
 
+    #DAT/CFG oder CSV ohne gespeicherte Korrektur
     else:
-        print("Offset aus Datei:", offset)
+        ux_korrigiert = ux - get_offset_x()
+        uy_korrigiert = uy - get_offset()
 
-        if offset != 0:
-            uy_korrigiert = uy
-        else:
-            eingestellter_offset = get_offset()
-            uy_korrigiert = uy - eingestellter_offset
+    h = ux_korrigiert * h_scale
 
-    #Hysterese: Uy wird mit dem B-Skalierungsfaktor in B umgerechnet.
     if value == 0:
         b = uy_korrigiert * b_scale
         return h, b
 
-    #Permeabilität: Uy wird direkt gemäß der Laborformel skaliert.
     return h, uy_korrigiert
 
 def plotdaten_glaetten(H, B, fenster=11, polynomgrad=2):
@@ -2006,11 +2054,11 @@ def plotten_kurven(value, hauptfenster, pfade, glaetten=False):
 
             plt.plot(H, mu_r, label=label)
 
-    plt.xlabel("H [A/m]")
+    plt.xlabel("H [A/m]",fontsize=20)
 
     if value == 0:
 
-        plt.ylabel("B [T]")
+        plt.ylabel("B [T]",fontsize=20)
         plt.title("Hysteresekurven")
 
     else:
@@ -2195,7 +2243,7 @@ def eingabe_daten(fenster,hauptfenster):
     frame_sample.grid(row=0, column=0, sticky="nsew", padx=10, pady=(0, 10))
 
     #Frame für Offset
-    frame_offset = tk.LabelFrame(ein_container, text="UB-Offset", relief="ridge",
+    frame_offset = tk.LabelFrame(ein_container, text="Offsetkorrektur", relief="ridge",
                                     bd=6,padx=10,pady=10,background="#f5f7fa",
                                     font=("Arial", 10, "bold"))
     frame_offset.grid(row=0, column=1, sticky="nsew", padx=10, pady=(0, 10))
@@ -2464,37 +2512,68 @@ def offset_eingabe(frame_offset):
     """
 
     #Label für die Beschriftung
-    label_offset = tk.Label(frame_offset, text="UB-Offset [V]:", bg="#f5f7fa")
-    label_offset.grid(row=0, column=0, padx=5, pady=5, sticky="w")
+    label_offsety = tk.Label(frame_offset, text="UB-Offset [V]:", bg="#f5f7fa")
+    label_offsety.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
-    #Eingabefeld Offset erzeugen
-    entry_offset = tk.Entry(frame_offset, width=10)
-    entry_offset.grid(row=0, column=1, padx=5, pady=5)
-    entry_offset.insert(0, "0.0")
+    label_offsetx = tk.Label(frame_offset, text="UH-Offset [V]:", bg="#f5f7fa")
+    label_offsetx.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+
+    #Eingabefeld Offset y erzeugen
+    entry_offsety = tk.Entry(frame_offset, width=10)
+    entry_offsety.grid(row=0, column=1, padx=5, pady=5)
+    entry_offsety.insert(0, "0.0")
+
+    #Eingabefeld Offset x erzeugen
+    entry_offsetx = tk.Entry(frame_offset, width=10)
+    entry_offsetx.grid(row=1, column=1, padx=5, pady=5)
+    entry_offsetx.insert(0, "0.0")
 
     #Ausgabefunktion
     def offset_uebernehmen():
 
         """
-        Prüft und übernimmt den eingegebenen Offsetwert.
+        Prüft und übernimmt die eingegebenen Offsetwerte.
         """
 
-        text = entry_offset.get().replace(",", ".")
         try:
-            wert = float(text)
-            update_offset(wert) #Updaten des aktuellen Offsetwertes
-            messagebox.showinfo("UB-Offset", f"UB-Offset auf {wert} V gesetzt.")
-        except ValueError:
-            messagebox.showerror("Fehler", "Bitte eine gültige Offset-Spannung eingeben.")
+            wert_x = float(
+                entry_offsetx.get().replace(",", ".").strip()
+            )
 
-    #Button für das Speichern bzw. Übernehmen des Offsets
+            wert_y = float(
+                entry_offsety.get().replace(",", ".").strip()
+            )
+
+        except ValueError:
+            messagebox.showerror(
+                "Ungültige Eingabe",
+                "Bitte für beide Offsetwerte gültige Zahlen eingeben."
+            )
+            return
+
+        update_offset_x(wert_x)
+        update_offset(wert_y)
+
+        messagebox.showinfo(
+            "Offsetkorrektur",
+            f"Ux-Offset: {wert_x:g} V\n"
+            f"Uy-Offset: {wert_y:g} V"
+        )
+
+    #Gemeinsamer Button für das Speichern der eingestellten Werten
     btn_offset = create_button(
         frame_offset,
-        text="Offset übernehmen",
+        text="Offsets übernehmen",
         command=offset_uebernehmen,
-        primary=False,
+        primary=False
     )
-    btn_offset.grid(row=1, column=0, columnspan=2, pady=5)
+
+    btn_offset.grid(
+        row=2,
+        column=0,
+        columnspan=2,
+        pady=8
+    )
 
 def optionen(hauptfenster):
 

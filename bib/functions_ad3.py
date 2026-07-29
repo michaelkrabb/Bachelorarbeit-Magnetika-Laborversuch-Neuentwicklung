@@ -32,7 +32,8 @@ fs = 2000           #Sample per seconds
 sc = 10             #Zeit 
 R = 1               #Ohm, Wert des Shunt-Widerstands
 t_index = 0         #Zeitindex für alle Messungen (in Samples)
-u_offset = 0        #Offset 
+u_offset = 0        #Offset für die B Komponente
+ux_offset = 0       #für die H Komponente
 messung_index = 0
 
 #globale Variable für Messung fortsetzen
@@ -83,6 +84,20 @@ def update_offset(wert):
     global u_offset
     u_offset = wert
 
+def update_offset_x(wert):
+
+    """
+        Speichert den eingestellen Offsetwert ab, in diesem Fall
+        die x Kompnente.
+            
+        Args:
+            wert (float): 
+                Neuer Offsetwert
+    
+        """
+    global ux_offset
+    ux_offset = wert
+
 def get_offset():
 
     """
@@ -96,6 +111,22 @@ def get_offset():
     """
 
     return u_offset
+
+def get_offset_x():
+
+    
+    """
+    Gibt den aktuell eingestellten Offsetwert zurück.
+    Die Funktion wird vom GUI verwendet.
+    Als Funktion programmiert um diese im GUI aufrufen zu können.
+    Auch hier gilt für die x Komponente.
+
+    Returns:
+        ux_offset (float): 
+            Aktueller Offsetwert   
+    """
+
+    return ux_offset
 
 def index_csv():
 
@@ -184,7 +215,7 @@ def berechnungen(ux_werte,uy_werte,zeit_s):
 
     """
     
-    daten = np.column_stack([zeit_s, ux_werte, uy_werte - u_offset])
+    daten = np.column_stack([zeit_s, ux_werte - ux_offset, uy_werte - u_offset])
     return daten
 
 
@@ -251,7 +282,8 @@ def csv_initialisieren():
     with open(CSV_Path, mode="w", newline="",encoding="utf-8") as file:
 
         #Verwendeten Offset und Status der Korrektur speichern
-        file.write(f"Offset = {u_offset} V\n")
+        file.write(f"Ux-Offset = {ux_offset} V; "
+                    f"Uy-Offset = {u_offset} V\n")
 
         #erzeugen der kopfzeile für die Messeinträge
         writer = csv.writer(file, delimiter=";")
@@ -472,7 +504,8 @@ def sample_update():
             #Daten queue, Messdaten für den Live-Plot bereitstellen
             for j in range(n):
                 try:
-                    data_queue.put((float(t_arr[j]), float(x_werte[j]), float(y_werte[j] - u_offset)))
+                    data_queue.put((float(t_arr[j]), float(x_werte[j] - ux_offset), 
+                                    float(y_werte[j] - u_offset)))
                 except queue.Full:
                     break
 
