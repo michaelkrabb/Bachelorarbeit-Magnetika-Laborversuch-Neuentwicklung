@@ -2065,13 +2065,14 @@ def plotten_kurven(value, hauptfenster, pfade, glaetten=False):
 
     else:
 
-        plt.ylabel(r"$\mu_{r,\mathrm{diff}}$ []",fontsize=14)
+        plt.ylabel(r"$\mu_{r,\mathrm{diff}}$ [1]",fontsize=14)
         plt.title("Differentielle Permeabilität")
 
-
+    plt.xticks(fontsize=10)
+    plt.yticks(fontsize=10)
     plt.subplots_adjust(right=0.75)
     plt.grid(True)
-    plt.legend(loc="center left",bbox_to_anchor=(1.02, 0.5))
+    plt.legend(loc="center left",bbox_to_anchor=(1.02, 0.5),fontsize=14)
     plt.show()
 
 
