@@ -2051,7 +2051,7 @@ def plotten_kurven(value, hauptfenster, pfade, glaetten=False):
                 plt.close()
                 return
 
-            mu_r = Uy * mu_faktor
+            mu_r = np.abs(Uy * mu_faktor)
             mu_r[~np.isfinite(mu_r)] = np.nan
 
             plt.plot(H, mu_r, label=label)
