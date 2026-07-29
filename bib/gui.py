@@ -1863,10 +1863,12 @@ def datei_laden(hauptfenster, pfad, value):
         ux_korrigiert = ux
         uy_korrigiert = uy
 
-    #Alte CSV: Uy wurde bereits korrigiert, Ux noch nicht
+    #Alte CSV:
+    #Der damals gespeicherte Uy-Offset wurde bereits abgezogen.
+    #Eine nachträgliche Korrektur erfolgt relativ zu diesem alten Offset.
     elif offsets_bereits_korrigiert == "nur_uy":
         ux_korrigiert = ux - get_offset_x()
-        uy_korrigiert = uy
+        uy_korrigiert = uy + alter_uy_offset - get_offset()
 
     #DAT/CFG oder CSV ohne gespeicherte Korrektur
     else:
@@ -2054,16 +2056,16 @@ def plotten_kurven(value, hauptfenster, pfade, glaetten=False):
 
             plt.plot(H, mu_r, label=label)
 
-    plt.xlabel("H [A/m]",fontsize=20)
+    plt.xlabel("H [A/m]",fontsize=14)
 
     if value == 0:
 
-        plt.ylabel("B [T]",fontsize=20)
+        plt.ylabel("B [T]",fontsize=14)
         plt.title("Hysteresekurven")
 
     else:
 
-        plt.ylabel(r"$\mu_{r,\mathrm{diff}}$ [-]")
+        plt.ylabel(r"$\mu_{r,\mathrm{diff}}$ []",fontsize=14)
         plt.title("Differentielle Permeabilität")
 
 
