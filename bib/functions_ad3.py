@@ -28,7 +28,7 @@ data_queue = queue.Queue()
 
 #Parameter der Messung 
 
-fs = 2000           #Sample per seconds
+fs = 1000           #Sample per seconds
 sc = 10             #Zeit 
 R = 1               #Ohm, Wert des Shunt-Widerstands
 t_index = 0         #Zeitindex für alle Messungen (in Samples)

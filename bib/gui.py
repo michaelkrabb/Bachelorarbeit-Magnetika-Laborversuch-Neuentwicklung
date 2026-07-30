@@ -440,7 +440,7 @@ def get_nachleuchten_aktiv(hauptfenster):
     """
 
     #Um die Sample rate zu erhalten
-    sample = hauptfenster.state.get("sample_rate", 2000)
+    sample = hauptfenster.state.get("sample_rate", 1000)
 
     #Fallunterscheidung für Nachleuchten erst ab 2000 Samples aktiv
     if sample >= 2000:
@@ -1601,7 +1601,7 @@ def container_left(hauptfenster):
     ).pack(side="left", padx=5)
 
 
-    sample_var = tk.StringVar(value="2000 S/s")
+    sample_var = tk.StringVar(value="1000 S/s")
 
     tk.Label(
         frame_sample_anzeige,
@@ -2279,9 +2279,9 @@ def eingabe_daten(fenster,hauptfenster):
 
     sample_box = ttk.Combobox(frame_sample,values=[100, 200, 500, 1000, 2000, 5000, 10000],
                                 state="readonly",width=10)
-    sample_box.set(2000)  #Standardwert
+    sample_box.set(1000)  #Standardwert
     sample_box.grid(row=0, column=1, padx=5, pady=5)
-    sample_rate(2000)
+    sample_rate(1000)
 
     #Werte bei jeder Änderung übernehmen, ändert die Sample rate
     def sample_change(event):
@@ -3177,7 +3177,7 @@ class Hauptfenster(tk.Tk):
             "messung_laeuft": False,
             "cursor_H_var": None,
             "cursor_B_var": None,
-            "sample_rate": 2000,
+            "sample_rate": 1000,
             "signal_y_unten": -6.0,
             "signal_y_oben": 6.0
             }
